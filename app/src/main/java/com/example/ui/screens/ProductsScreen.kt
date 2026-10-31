@@ -23,6 +23,7 @@ import androidx.compose.ui.window.Dialog
 import com.example.models.Product
 import com.example.providers.BillingProvider
 import com.example.ui.theme.*
+import com.example.utils.DateUtils
 import com.example.utils.IconUtils
 
 @Composable
@@ -46,7 +47,7 @@ fun ProductsScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(BiriBlack)
+            .background(AppTheme.colors.background)
             .padding(paddingValues)
     ) {
         LazyColumn(
@@ -67,12 +68,12 @@ fun ProductsScreen(
                             text = "পণ্য তালিকা",
                             style = MaterialTheme.typography.headlineMedium,
                             fontWeight = FontWeight.ExtraBold,
-                            color = BiriYellow
+                            color = AppTheme.colors.accentYellow
                         )
                         Text(
                             text = "পণ্যের মূল্য ও আইকন নিয়ন্ত্রণ করুন",
                             style = MaterialTheme.typography.bodyMedium,
-                            color = Color.LightGray
+                            color = AppTheme.colors.textSecondary
                         )
                     }
 
@@ -84,7 +85,7 @@ fun ProductsScreen(
                             showAddDialog = true
                         },
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = BiriYellow,
+                            containerColor = AppTheme.colors.accentYellow,
                             contentColor = Color.Black
                         ),
                         shape = RoundedCornerShape(12.dp)
@@ -98,10 +99,10 @@ fun ProductsScreen(
 
             item {
                 Text(
-                    text = "মোট পণ্য (${products.size} টি)",
+                    text = "মোট পণ্য (${DateUtils.toBengaliDigits(products.size)} টি)",
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold,
-                    color = BiriYellow,
+                    color = AppTheme.colors.accentYellow,
                     modifier = Modifier.padding(top = 8.dp)
                 )
             }
@@ -110,8 +111,9 @@ fun ProductsScreen(
                 item {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(containerColor = BiriBlackCard),
-                        shape = RoundedCornerShape(16.dp)
+                        colors = CardDefaults.cardColors(containerColor = AppTheme.colors.cardBackground),
+                        shape = RoundedCornerShape(16.dp),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, AppTheme.colors.border)
                     ) {
                         Column(
                             modifier = Modifier
@@ -122,14 +124,14 @@ fun ProductsScreen(
                             Icon(
                                 imageVector = Icons.Default.Inventory2,
                                 contentDescription = null,
-                                tint = Color.Gray,
+                                tint = AppTheme.colors.textMuted,
                                 modifier = Modifier.size(48.dp)
                             )
                             Spacer(modifier = Modifier.height(8.dp))
                             Text(
                                 text = "কোন পণ্য নেই। ডিফল্ট পণ্য লোড করুন বা নতুন যোগ করুন।",
-                                color = Color.LightGray,
-                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                color = AppTheme.colors.textSecondary,
+                                fontWeight = FontWeight.Bold
                             )
                         }
                     }
@@ -138,9 +140,9 @@ fun ProductsScreen(
                 items(products, key = { it.id }) { product ->
                     Card(
                         modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(containerColor = BiriBlackCard),
+                        colors = CardDefaults.cardColors(containerColor = AppTheme.colors.cardBackground),
                         shape = RoundedCornerShape(14.dp),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, BiriBorderDark)
+                        border = androidx.compose.foundation.BorderStroke(1.dp, AppTheme.colors.border)
                     ) {
                         Row(
                             modifier = Modifier
@@ -158,14 +160,14 @@ fun ProductsScreen(
                                     modifier = Modifier
                                         .size(46.dp)
                                         .clip(RoundedCornerShape(12.dp))
-                                        .background(Color(0xFF252528)),
+                                        .background(AppTheme.colors.elevatedBackground),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Icon(
                                         imageVector = IconUtils.getIconForType(product.iconType),
                                         contentDescription = null,
-                                        tint = BiriYellow,
-                                        modifier = Modifier.size(26.dp)
+                                        tint = AppTheme.colors.accentYellow,
+                                        modifier = Modifier.size(24.dp)
                                     )
                                 }
 
@@ -174,13 +176,13 @@ fun ProductsScreen(
                                         text = product.name,
                                         style = MaterialTheme.typography.titleMedium,
                                         fontWeight = FontWeight.Bold,
-                                        color = Color.White
+                                        color = AppTheme.colors.textPrimary
                                     )
                                     Text(
-                                        text = "৳ ${String.format("%.0f", product.price)}",
+                                        text = "মূল্য: ৳ ${DateUtils.toBengaliDigits(product.price)}",
                                         style = MaterialTheme.typography.bodyMedium,
-                                        fontWeight = FontWeight.Bold,
-                                        color = BiriYellow
+                                        color = AppTheme.colors.accentYellow,
+                                        fontWeight = FontWeight.SemiBold
                                     )
                                 }
                             }
@@ -190,14 +192,14 @@ fun ProductsScreen(
                                     onClick = {
                                         editingProduct = product
                                         nameField = product.name
-                                        priceField = product.price.toString()
+                                        priceField = if (product.price % 1.0 == 0.0) product.price.toInt().toString() else product.price.toString()
                                         iconTypeField = product.iconType
                                     }
                                 ) {
                                     Icon(
-                                        imageVector = Icons.Default.Edit,
+                                        Icons.Default.Edit,
                                         contentDescription = "Edit",
-                                        tint = BiriYellowLight
+                                        tint = AppTheme.colors.accentYellow
                                     )
                                 }
 
@@ -205,9 +207,9 @@ fun ProductsScreen(
                                     onClick = { deletingProduct = product }
                                 ) {
                                     Icon(
-                                        imageVector = Icons.Default.DeleteOutline,
+                                        Icons.Default.DeleteOutline,
                                         contentDescription = "Delete",
-                                        tint = BiriRed
+                                        tint = AppTheme.colors.accentRed
                                     )
                                 }
                             }
@@ -222,15 +224,15 @@ fun ProductsScreen(
             ProductEditDialog(
                 title = "নতুন পণ্য যোগ করুন",
                 name = nameField,
-                price = priceField,
-                iconType = iconTypeField,
                 onNameChange = { nameField = it },
+                price = priceField,
                 onPriceChange = { priceField = it },
+                iconType = iconTypeField,
                 onIconTypeChange = { iconTypeField = it },
                 onDismiss = { showAddDialog = false },
                 onConfirm = {
                     val p = priceField.toDoubleOrNull() ?: 0.0
-                    if (nameField.isNotBlank() && p > 0) {
+                    if (nameField.isNotBlank() && p >= 0) {
                         provider.addProduct(nameField.trim(), p, iconTypeField)
                         showAddDialog = false
                     }
@@ -240,59 +242,52 @@ fun ProductsScreen(
 
         // Edit Product Dialog
         if (editingProduct != null) {
-            val prod = editingProduct!!
             ProductEditDialog(
-                title = "পণ্য সম্পাদনা করুন",
+                title = "পণ্য এডিট করুন",
                 name = nameField,
-                price = priceField,
-                iconType = iconTypeField,
                 onNameChange = { nameField = it },
+                price = priceField,
                 onPriceChange = { priceField = it },
+                iconType = iconTypeField,
                 onIconTypeChange = { iconTypeField = it },
                 onDismiss = { editingProduct = null },
                 onConfirm = {
-                    val p = priceField.toDoubleOrNull() ?: prod.price
-                    if (nameField.isNotBlank()) {
-                        provider.updateProduct(
-                            prod.copy(
-                                name = nameField.trim(),
-                                price = p,
-                                iconType = iconTypeField
+                    val p = priceField.toDoubleOrNull() ?: 0.0
+                    if (nameField.isNotBlank() && p >= 0) {
+                        editingProduct?.let {
+                            provider.updateProduct(
+                                it.copy(name = nameField.trim(), price = p, iconType = iconTypeField)
                             )
-                        )
+                        }
                         editingProduct = null
                     }
                 }
             )
         }
 
-        // Delete Confirmation Dialog
+        // Delete Product Dialog
         if (deletingProduct != null) {
-            val prod = deletingProduct!!
             AlertDialog(
                 onDismissRequest = { deletingProduct = null },
-                title = { Text("পণ্য মুছে ফেলা", color = BiriRed, fontWeight = FontWeight.Bold) },
-                text = { Text("আপনি কি নিশ্চিতভাবে '${prod.name}' তালিকা থেকে মুছে ফেলতে চান?", color = Color.LightGray) },
+                title = { Text("পণ্য মুছুন", color = AppTheme.colors.accentRed, fontWeight = FontWeight.Bold) },
+                text = { Text("আপনি কি নিশ্চিতভাবে '${deletingProduct?.name}' পণ্যটি তালিকা থেকে মুছে ফেলতে চান?", color = AppTheme.colors.textPrimary) },
                 confirmButton = {
                     Button(
                         onClick = {
-                            provider.deleteProduct(prod)
+                            deletingProduct?.let { provider.deleteProduct(it) }
                             deletingProduct = null
                         },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = BiriRed,
-                            contentColor = Color.White
-                        )
+                        colors = ButtonDefaults.buttonColors(containerColor = AppTheme.colors.accentRed, contentColor = Color.White)
                     ) {
-                        Text("মুছে ফেলুন", fontWeight = FontWeight.Bold)
+                        Text("হ্যাঁ, মুছুন", fontWeight = FontWeight.Bold)
                     }
                 },
                 dismissButton = {
                     TextButton(onClick = { deletingProduct = null }) {
-                        Text("বাতিল", color = Color.Gray)
+                        Text("বাতিল", color = AppTheme.colors.textMuted)
                     }
                 },
-                containerColor = BiriBlackCard
+                containerColor = AppTheme.colors.cardBackground
             )
         }
     }
@@ -300,24 +295,24 @@ fun ProductsScreen(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ProductEditDialog(
+fun ProductEditDialog(
     title: String,
     name: String,
-    price: String,
-    iconType: String,
     onNameChange: (String) -> Unit,
+    price: String,
     onPriceChange: (String) -> Unit,
+    iconType: String,
     onIconTypeChange: (String) -> Unit,
     onDismiss: () -> Unit,
     onConfirm: () -> Unit
 ) {
-    var expandedDropdown by remember { mutableStateOf(false) }
+    val icons = listOf("FOOD", "TEA", "COFFEE", "SMOKE", "GAME", "WATER", "SNACK", "ITEM")
 
     Dialog(onDismissRequest = onDismiss) {
         Card(
             shape = RoundedCornerShape(20.dp),
-            colors = CardDefaults.cardColors(containerColor = BiriBlackCard),
-            border = androidx.compose.foundation.BorderStroke(1.dp, BiriYellow)
+            colors = CardDefaults.cardColors(containerColor = AppTheme.colors.cardBackground),
+            border = androidx.compose.foundation.BorderStroke(1.dp, AppTheme.colors.accentYellow)
         ) {
             Column(
                 modifier = Modifier
@@ -329,21 +324,20 @@ private fun ProductEditDialog(
                     text = title,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
-                    color = BiriYellow
+                    color = AppTheme.colors.accentYellow
                 )
 
                 OutlinedTextField(
                     value = name,
                     onValueChange = onNameChange,
                     label = { Text("পণ্যের নাম") },
-                    placeholder = { Text("যেমন: বেনসন, চা...") },
                     singleLine = true,
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = BiriYellow,
-                        unfocusedBorderColor = BiriBorderDark,
-                        focusedLabelColor = BiriYellow,
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White
+                        focusedBorderColor = AppTheme.colors.accentYellow,
+                        unfocusedBorderColor = AppTheme.colors.border,
+                        focusedLabelColor = AppTheme.colors.accentYellow,
+                        focusedTextColor = AppTheme.colors.textPrimary,
+                        unfocusedTextColor = AppTheme.colors.textPrimary
                     ),
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -351,45 +345,69 @@ private fun ProductEditDialog(
                 OutlinedTextField(
                     value = price,
                     onValueChange = onPriceChange,
-                    label = { Text("মূল্য (৳)") },
-                    placeholder = { Text("যেমন: ২০") },
+                    label = { Text("মূল্য (টাকা)") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     singleLine = true,
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = BiriYellow,
-                        unfocusedBorderColor = BiriBorderDark,
-                        focusedLabelColor = BiriYellow,
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White
+                        focusedBorderColor = AppTheme.colors.accentYellow,
+                        unfocusedBorderColor = AppTheme.colors.border,
+                        focusedLabelColor = AppTheme.colors.accentYellow,
+                        focusedTextColor = AppTheme.colors.textPrimary,
+                        unfocusedTextColor = AppTheme.colors.textPrimary
                     ),
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                // Icon Selector
-                Column {
-                    Text("আইকন নির্বাচন করুন", style = MaterialTheme.typography.labelMedium, color = Color.LightGray)
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        IconUtils.availableIconTypes.take(4).forEach { opt ->
-                            val isSelected = iconType == opt.type
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .height(44.dp)
-                                    .clip(RoundedCornerShape(10.dp))
-                                    .background(if (isSelected) BiriYellow else Color(0xFF2A2A2A))
-                                    .clickable { onIconTypeChange(opt.type) },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = opt.icon,
-                                    contentDescription = opt.name,
-                                    tint = if (isSelected) Color.Black else Color.LightGray
-                                )
-                            }
+                Text(
+                    text = "আইকন নির্বাচন করুন",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = AppTheme.colors.textSecondary
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    icons.take(4).forEach { ic ->
+                        val isSelected = iconType == ic
+                        Box(
+                            modifier = Modifier
+                                .size(44.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(if (isSelected) AppTheme.colors.accentYellow else AppTheme.colors.elevatedBackground)
+                                .clickable { onIconTypeChange(ic) },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = IconUtils.getIconForType(ic),
+                                contentDescription = ic,
+                                tint = if (isSelected) Color.Black else AppTheme.colors.textSecondary,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                    }
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    icons.drop(4).forEach { ic ->
+                        val isSelected = iconType == ic
+                        Box(
+                            modifier = Modifier
+                                .size(44.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(if (isSelected) AppTheme.colors.accentYellow else AppTheme.colors.elevatedBackground)
+                                .clickable { onIconTypeChange(ic) },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = IconUtils.getIconForType(ic),
+                                contentDescription = ic,
+                                tint = if (isSelected) Color.Black else AppTheme.colors.textSecondary,
+                                modifier = Modifier.size(24.dp)
+                            )
                         }
                     }
                 }
@@ -398,17 +416,14 @@ private fun ProductEditDialog(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    TextButton(
-                        onClick = onDismiss,
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Text("বাতিল", color = Color.Gray)
+                    TextButton(onClick = onDismiss, modifier = Modifier.weight(1f)) {
+                        Text("বাতিল", color = AppTheme.colors.textMuted)
                     }
 
                     Button(
                         onClick = onConfirm,
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = BiriYellow,
+                            containerColor = AppTheme.colors.accentYellow,
                             contentColor = Color.Black
                         ),
                         shape = RoundedCornerShape(10.dp),

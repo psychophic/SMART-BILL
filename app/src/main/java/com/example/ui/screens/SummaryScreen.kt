@@ -29,7 +29,7 @@ import androidx.compose.ui.unit.sp
 import com.example.models.Product
 import com.example.providers.BillingProvider
 import com.example.ui.theme.*
-import java.text.SimpleDateFormat
+import com.example.utils.DateUtils
 import java.util.*
 
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
@@ -69,33 +69,32 @@ fun SummaryScreen(
 
     val grandTotal = totalProductsCost + totalExpensesCost
 
-    val timestamp = remember {
-        val sdf = SimpleDateFormat("dd MMM yyyy, hh:mm a", Locale.getDefault())
-        sdf.format(Date())
+    val timestampFormatted = remember {
+        DateUtils.formatDateTime(System.currentTimeMillis())
     }
 
-    val receiptText = remember(activeItems, expenses, grandTotal, timestamp) {
+    val receiptText = remember(activeItems, expenses, grandTotal, timestampFormatted) {
         val sb = java.lang.StringBuilder()
         sb.append("============================\n")
         sb.append("   বিড়িখোর বিল - ক্যাশ মেমো\n")
         sb.append("============================\n")
-        sb.append("তারিখ ও সময়: $timestamp\n")
+        sb.append("তারিখ ও সময়: $timestampFormatted\n")
         sb.append("----------------------------\n")
         sb.append("পণ্যের বিবরণ:\n")
         activeItems.forEach { (p, qty, sub) ->
-            sb.append("- ${p.name} (x$qty): ৳ ${sub.toInt()} টাকা\n")
+            sb.append("- ${p.name} (x${DateUtils.toBengaliDigits(qty)}): ৳ ${DateUtils.toBengaliDigits(sub)} টাকা\n")
         }
         if (expenses.isNotEmpty()) {
             sb.append("----------------------------\n")
             sb.append("বিবিধ / অন্যান্য খরচ:\n")
             expenses.forEachIndexed { i, exp ->
-                sb.append("- এন্ট্রি #${i + 1}: ৳ ${exp.amount.toInt()} টাকা\n")
+                sb.append("- এন্ট্রি #${DateUtils.toBengaliDigits(i + 1)}: ৳ ${DateUtils.toBengaliDigits(exp.amount)} টাকা\n")
             }
         }
         sb.append("============================\n")
-        sb.append("পণ্য সামগ্রী মোট : ৳ ${totalProductsCost.toInt()} টাকা\n")
-        sb.append("অন্যান্য খরচ   : ৳ ${totalExpensesCost.toInt()} টাকা\n")
-        sb.append("সর্বমোট বিল    : ৳ ${grandTotal.toInt()} টাকা\n")
+        sb.append("পণ্য সামগ্রী মোট : ৳ ${DateUtils.toBengaliDigits(totalProductsCost)} টাকা\n")
+        sb.append("অন্যান্য খরচ   : ৳ ${DateUtils.toBengaliDigits(totalExpensesCost)} টাকা\n")
+        sb.append("সর্বমোট বিল    : ৳ ${DateUtils.toBengaliDigits(grandTotal)} টাকা\n")
         sb.append("============================\n")
         sb.append("Developed by Shanewas Shan\n")
         sb.append("ধন্যবাদ, আবার আসবেন!\n")
@@ -109,7 +108,7 @@ fun SummaryScreen(
                     Text(
                         "ক্যাশ মেমো ও রশিদ",
                         fontWeight = FontWeight.Bold,
-                        color = BiriYellow
+                        color = AppTheme.colors.accentYellow
                     )
                 },
                 navigationIcon = {
@@ -117,7 +116,7 @@ fun SummaryScreen(
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "ফিরে যান",
-                            tint = Color.White
+                            tint = AppTheme.colors.textPrimary
                         )
                     }
                 },
@@ -130,7 +129,7 @@ fun SummaryScreen(
                             Toast.makeText(context, "রশিদ কপি করা হয়েছে!", Toast.LENGTH_SHORT).show()
                         }
                     ) {
-                        Icon(Icons.Default.ContentCopy, contentDescription = "কপি", tint = BiriYellow)
+                        Icon(Icons.Default.ContentCopy, contentDescription = "কপি", tint = AppTheme.colors.accentYellow)
                     }
                     IconButton(
                         onClick = {
@@ -141,13 +140,13 @@ fun SummaryScreen(
                             context.startActivity(Intent.createChooser(intent, "রশিদ শেয়ার করুন"))
                         }
                     ) {
-                        Icon(Icons.Default.Share, contentDescription = "শেয়ার", tint = BiriYellow)
+                        Icon(Icons.Default.Share, contentDescription = "শেয়ার", tint = AppTheme.colors.accentYellow)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = BiriBlack)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = AppTheme.colors.cardBackground)
             )
         },
-        containerColor = BiriBlack
+        containerColor = AppTheme.colors.background
     ) { innerPadding ->
         Column(
             modifier = Modifier
@@ -162,8 +161,8 @@ fun SummaryScreen(
                     .weight(1f)
                     .fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = BiriBlackCard),
-                border = androidx.compose.foundation.BorderStroke(1.dp, BiriYellow)
+                colors = CardDefaults.cardColors(containerColor = AppTheme.colors.cardBackground),
+                border = androidx.compose.foundation.BorderStroke(1.dp, AppTheme.colors.accentYellow)
             ) {
                 LazyColumn(
                     modifier = Modifier
@@ -178,146 +177,206 @@ fun SummaryScreen(
                         ) {
                             Text(
                                 text = "বিড়িখোর বিল",
-                                style = MaterialTheme.typography.titleLarge,
+                                style = MaterialTheme.typography.headlineMedium,
                                 fontWeight = FontWeight.ExtraBold,
-                                color = BiriYellow
+                                color = AppTheme.colors.accentYellow
                             )
                             Text(
-                                text = "ক্যাশ মেমো",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = Color.LightGray
+                                text = "ডিজিটাল ক্যাশ মেমো রশিদ",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = AppTheme.colors.textSecondary
                             )
                             Text(
-                                text = timestamp,
+                                text = "তারিখ: $timestampFormatted",
                                 style = MaterialTheme.typography.labelSmall,
-                                color = Color.Gray
+                                color = AppTheme.colors.textMuted,
+                                modifier = Modifier.padding(top = 4.dp)
                             )
-                            Divider(color = BiriBorderDark, modifier = Modifier.padding(vertical = 8.dp))
+                            Divider(
+                                color = AppTheme.colors.border,
+                                modifier = Modifier.padding(vertical = 10.dp)
+                            )
                         }
                     }
 
                     if (activeItems.isEmpty() && expenses.isEmpty()) {
                         item {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(32.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "বিল করার মতো কোন পণ্য সিলেক্ট করা নেই",
+                                    color = AppTheme.colors.textMuted
+                                )
+                            }
+                        }
+                    }
+
+                    // Product items
+                    items(activeItems) { (product, qty, subtotal) ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column {
+                                Text(
+                                    text = product.name,
+                                    fontWeight = FontWeight.Bold,
+                                    color = AppTheme.colors.textPrimary
+                                )
+                                Text(
+                                    text = "৳ ${DateUtils.toBengaliDigits(product.price)} × ${DateUtils.toBengaliDigits(qty)}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = AppTheme.colors.textSecondary
+                                )
+                            }
                             Text(
-                                text = "কোন পণ্য বা খরচ যুক্ত করা হয়নি",
-                                color = Color.Gray,
-                                modifier = Modifier.padding(vertical = 16.dp),
-                                textAlign = TextAlign.Center
+                                text = "৳ ${DateUtils.toBengaliDigits(subtotal)}",
+                                fontWeight = FontWeight.Bold,
+                                color = AppTheme.colors.accentYellow
                             )
                         }
-                    } else {
-                        items(activeItems) { (product, qty, subtotal) ->
+                    }
+
+                    // Expenses
+                    if (expenses.isNotEmpty()) {
+                        item {
+                            Divider(
+                                color = AppTheme.colors.border,
+                                modifier = Modifier.padding(vertical = 4.dp)
+                            )
+                            Text(
+                                text = "অন্যান্য / বিবিধ খরচ:",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = AppTheme.colors.textSecondary
+                            )
+                        }
+                        items(expenses) { exp ->
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
                                 Text(
-                                    text = "${product.name} (x$qty)",
-                                    color = Color.White,
-                                    fontSize = 15.sp,
-                                    fontWeight = FontWeight.Medium
+                                    text = "অতিরিক্ত খরচ",
+                                    color = AppTheme.colors.textPrimary
                                 )
                                 Text(
-                                    text = "৳ ${subtotal.toInt()}",
-                                    color = BiriYellow,
-                                    fontSize = 15.sp,
-                                    fontWeight = FontWeight.Bold
+                                    text = "৳ ${DateUtils.toBengaliDigits(exp.amount)}",
+                                    fontWeight = FontWeight.Bold,
+                                    color = AppTheme.colors.accentRed
                                 )
                             }
                         }
+                    }
 
-                        if (expenses.isNotEmpty()) {
-                            item {
-                                Divider(color = BiriBorderDark, modifier = Modifier.padding(vertical = 6.dp))
-                                Text("বিবিধ খরচ:", color = Color.LightGray, fontSize = 13.sp)
+                    item {
+                        Divider(
+                            color = AppTheme.colors.border,
+                            modifier = Modifier.padding(vertical = 10.dp)
+                        )
+                        // Totals summary
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text("পণ্যের মোট:", color = AppTheme.colors.textSecondary)
+                                Text("৳ ${DateUtils.toBengaliDigits(totalProductsCost)}", color = AppTheme.colors.textPrimary, fontWeight = FontWeight.SemiBold)
                             }
-                            items(expenses) { exp ->
+                            if (totalExpensesCost > 0) {
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.SpaceBetween
                                 ) {
-                                    Text(
-                                        text = "অন্যান্য পাওনা",
-                                        color = Color.LightGray,
-                                        fontSize = 14.sp
-                                    )
-                                    Text(
-                                        text = "৳ ${exp.amount.toInt()}",
-                                        color = BiriYellowLight,
-                                        fontSize = 14.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
+                                    Text("অন্যান্য খরচ:", color = AppTheme.colors.textSecondary)
+                                    Text("৳ ${DateUtils.toBengaliDigits(totalExpensesCost)}", color = AppTheme.colors.accentRed, fontWeight = FontWeight.SemiBold)
                                 }
+                            }
+                            Divider(
+                                color = AppTheme.colors.border,
+                                modifier = Modifier.padding(vertical = 4.dp)
+                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "সর্বমোট প্রদেয় বিল:",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = AppTheme.colors.textPrimary
+                                )
+                                Text(
+                                    text = "৳ ${DateUtils.toBengaliDigits(grandTotal)}",
+                                    style = MaterialTheme.typography.headlineSmall,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = AppTheme.colors.accentYellow
+                                )
                             }
                         }
 
-                        item {
-                            Divider(color = BiriYellow, thickness = 2.dp, modifier = Modifier.padding(vertical = 10.dp))
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Text(
-                                    text = "সর্বমোট বিল",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.ExtraBold,
-                                    color = Color.White
-                                )
-                                Text(
-                                    text = "৳ ${grandTotal.toInt()} টাকা",
-                                    style = MaterialTheme.typography.titleLarge,
-                                    fontWeight = FontWeight.ExtraBold,
-                                    color = BiriRed
-                                )
-                            }
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                text = "Developed by Shanewas Shan",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = BiriYellow,
-                                modifier = Modifier.fillMaxWidth(),
-                                textAlign = TextAlign.Center
-                            )
-                        }
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            text = "Developed by Shanewas Shan",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = AppTheme.colors.accentRed,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Text(
+                            text = "ধন্যবাদ, আবার আসবেন!",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = AppTheme.colors.textMuted,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth()
+                        )
                     }
                 }
             }
 
-            // Bottom Clear / Finish Buttons
+            // Bottom Action buttons
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 OutlinedButton(
-                    onClick = {
-                        provider.resetAllBill()
-                    },
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = BiriRed),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, BiriRed),
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(50.dp)
+                    onClick = onDismiss,
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = AppTheme.colors.textPrimary),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, AppTheme.colors.border),
+                    shape = RoundedCornerShape(12.dp)
                 ) {
-                    Icon(Icons.Default.DeleteSweep, contentDescription = null)
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("ক্লিয়ার ও শেষ", fontWeight = FontWeight.Bold)
+                    Text("ফিরে যান")
                 }
 
                 Button(
-                    onClick = onDismiss,
+                    onClick = {
+                        provider.recordInstantCounterSale(
+                            amount = grandTotal,
+                            summary = "কাউন্টার ক্যাশ মেমো",
+                            isDue = false
+                        )
+                        Toast.makeText(context, "বিল পরিশোধ সম্পন্ন ও হিস্ট্রিতে রেকর্ড করা হয়েছে!", Toast.LENGTH_SHORT).show()
+                        onDismiss()
+                    },
+                    modifier = Modifier.weight(1f),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = BiriYellow,
+                        containerColor = AppTheme.colors.accentYellow,
                         contentColor = Color.Black
                     ),
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(50.dp)
+                    shape = RoundedCornerShape(12.dp)
                 ) {
-                    Icon(Icons.Default.Check, contentDescription = null)
+                    Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("সম্পন্ন", fontWeight = FontWeight.Bold)
+                    Text("বিল পরিশোধ", fontWeight = FontWeight.Bold)
                 }
             }
         }

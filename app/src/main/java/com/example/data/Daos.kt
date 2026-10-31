@@ -84,3 +84,25 @@ interface CustomerDao {
     @Query("DELETE FROM customers")
     suspend fun clearAllCustomers()
 }
+
+@Dao
+interface BillRecordDao {
+    @Query("SELECT * FROM bill_records ORDER BY timestamp DESC")
+    fun getAllRecords(): Flow<List<com.example.models.BillRecord>>
+
+    @Query("SELECT * FROM bill_records WHERE customerId = :customerId ORDER BY timestamp DESC")
+    fun getRecordsForCustomer(customerId: Long): Flow<List<com.example.models.BillRecord>>
+
+    @Query("SELECT * FROM bill_records WHERE monthKey = :monthKey ORDER BY timestamp DESC")
+    fun getRecordsForMonth(monthKey: String): Flow<List<com.example.models.BillRecord>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertRecord(record: com.example.models.BillRecord): Long
+
+    @Delete
+    suspend fun deleteRecord(record: com.example.models.BillRecord)
+
+    @Query("DELETE FROM bill_records")
+    suspend fun clearAllRecords()
+}
+

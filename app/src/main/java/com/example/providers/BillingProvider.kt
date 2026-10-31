@@ -9,6 +9,8 @@ import com.example.models.Product
 import com.example.models.Expense
 import com.example.models.AppSetting
 import com.example.models.Customer
+import com.example.models.BillRecord
+import com.example.utils.DateUtils
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -24,7 +26,8 @@ class BillingProvider(application: Application) : AndroidViewModel(application) 
         db.productDao(),
         db.expenseDao(),
         db.appSettingDao(),
-        db.customerDao()
+        db.customerDao(),
+        db.billRecordDao()
     )
 
     val products: StateFlow<List<Product>> = repository.allProducts
@@ -36,11 +39,14 @@ class BillingProvider(application: Application) : AndroidViewModel(application) 
     val customers: StateFlow<List<Customer>> = repository.allCustomers
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    val billRecords: StateFlow<List<BillRecord>> = repository.allBillRecords
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     // Tracks quantity per product ID for Instant Counter / active editor
     private val _quantities = MutableStateFlow<Map<Int, Int>>(emptyMap())
     val quantities = _quantities.asStateFlow()
 
-    // Screen selection: "home", "products", "settings"
+    // Screen selection: "home", "instant", "history", "products", "settings"
     private val _currentTab = MutableStateFlow("home")
     val currentTab = _currentTab.asStateFlow()
 
@@ -122,6 +128,150 @@ class BillingProvider(application: Application) : AndroidViewModel(application) 
         if (index in list.indices) {
             list.removeAt(index)
             _customerExpenses.value = list
+        }
+    }
+
+    fun buildCustomerBillSummary(): String {
+        val qMap = _customerQuantities.value
+        val expList = _customerExpenses.value
+        val prods = products.value.associate { it.id to it.name }
+        val parts = mutableListOf<String>()
+        qMap.forEach { (pId, qty) ->
+            if (qty > 0) {
+                val name = prods[pId] ?: "পণ্য"
+                parts.add("$name (${DateUtils.toBengaliDigits(qty)})")
+            }
+        }
+        if (expList.isNotEmpty()) {
+            val totalExp = expList.sum()
+            parts.add("অন্যান্য খরচ (৳${DateUtils.toBengaliDigits(totalExp)})")
+        }
+        return if (parts.isEmpty()) "নগদ বিল" else parts.joinToString(", ")
+    }
+
+    fun saveCustomerDueBill() {
+        val customer = _activeCustomer.value ?: return
+        val currentProds = products.value
+        val prodPriceMap = currentProds.associate { it.id to it.price }
+
+        val qMap = _customerQuantities.value
+        val expList = _customerExpenses.value
+
+        var billAmount = 0.0
+        qMap.forEach { (pId, qty) ->
+            val price = prodPriceMap[pId] ?: 0.0
+            billAmount += price * qty
+        }
+        expList.forEach { exp ->
+            billAmount += exp
+        }
+
+        // Amount to add to due
+        val amountToAdd = if (billAmount > 0) billAmount else 0.0
+        val finalDue = customer.totalBill + amountToAdd
+        val summary = if (billAmount > 0) buildCustomerBillSummary() else "পূর্বের বাকী"
+
+        viewModelScope.launch {
+            val timestamp = System.currentTimeMillis()
+
+            if (amountToAdd > 0) {
+                val record = BillRecord(
+                    customerId = customer.id,
+                    customerName = customer.name,
+                    totalAmount = amountToAdd,
+                    status = "DUE",
+                    itemsSummary = summary,
+                    timestamp = timestamp,
+                    formattedDate = DateUtils.formatDate(timestamp),
+                    formattedTime = DateUtils.formatTime(timestamp),
+                    monthKey = DateUtils.getMonthKey(timestamp)
+                )
+                repository.recordBill(record)
+            }
+
+            // Update customer with new due total and clear active draft items
+            repository.updateCustomerBill(
+                customerId = customer.id,
+                billItemsJson = "{}",
+                expensesJson = "[]",
+                totalBill = finalDue
+            )
+
+            _customerQuantities.value = emptyMap()
+            _customerExpenses.value = emptyList()
+            _activeCustomer.value = customer.copy(
+                billItemsJson = "{}",
+                expensesJson = "[]",
+                totalBill = finalDue,
+                lastUpdated = timestamp
+            )
+        }
+    }
+
+    fun settleCustomerPaidBill() {
+        val customer = _activeCustomer.value ?: return
+        val currentProds = products.value
+        val prodPriceMap = currentProds.associate { it.id to it.price }
+
+        val qMap = _customerQuantities.value
+        val expList = _customerExpenses.value
+
+        var billAmount = 0.0
+        qMap.forEach { (pId, qty) ->
+            val price = prodPriceMap[pId] ?: 0.0
+            billAmount += price * qty
+        }
+        expList.forEach { exp ->
+            billAmount += exp
+        }
+
+        val totalPaidAmount = if (billAmount > 0) {
+            billAmount + customer.totalBill
+        } else {
+            customer.totalBill
+        }
+
+        val summary = if (billAmount > 0) {
+            val cartSummary = buildCustomerBillSummary()
+            if (customer.totalBill > 0) "$cartSummary + পূর্বের বকেয়া পরিশোধ" else cartSummary
+        } else {
+            "বকেয়া বিল সম্পূর্ণ পরিশোধ"
+        }
+
+        viewModelScope.launch {
+            val timestamp = System.currentTimeMillis()
+
+            if (totalPaidAmount > 0) {
+                val record = BillRecord(
+                    customerId = customer.id,
+                    customerName = customer.name,
+                    totalAmount = totalPaidAmount,
+                    status = "PAID",
+                    itemsSummary = summary,
+                    timestamp = timestamp,
+                    formattedDate = DateUtils.formatDate(timestamp),
+                    formattedTime = DateUtils.formatTime(timestamp),
+                    monthKey = DateUtils.getMonthKey(timestamp)
+                )
+                repository.recordBill(record)
+            }
+
+            // Set customer totalBill to 0 and clear draft
+            repository.clearCustomerBill(customer.id)
+            _customerQuantities.value = emptyMap()
+            _customerExpenses.value = emptyList()
+            _activeCustomer.value = customer.copy(
+                billItemsJson = "{}",
+                expensesJson = "[]",
+                totalBill = 0.0,
+                lastUpdated = timestamp
+            )
+        }
+    }
+
+    fun deleteBillRecord(record: BillRecord) {
+        viewModelScope.launch {
+            repository.deleteBillRecord(record)
         }
     }
 
@@ -228,6 +378,27 @@ class BillingProvider(application: Application) : AndroidViewModel(application) 
         _quantities.value = emptyMap()
         clearAllExpenses()
         _showSummary.value = false
+    }
+
+    fun recordInstantCounterSale(amount: Double, summary: String, isDue: Boolean = false, customerName: String = "কাউন্টার ক্রেতা") {
+        if (amount <= 0) return
+        viewModelScope.launch {
+            val timestamp = System.currentTimeMillis()
+            val record = BillRecord(
+                customerId = 0L,
+                customerName = customerName,
+                totalAmount = amount,
+                status = if (isDue) "DUE" else "PAID",
+                itemsSummary = summary,
+                timestamp = timestamp,
+                formattedDate = DateUtils.formatDate(timestamp),
+                formattedTime = DateUtils.formatTime(timestamp),
+                monthKey = DateUtils.getMonthKey(timestamp)
+            )
+            repository.recordBill(record)
+            resetQuantities()
+            clearAllExpenses()
+        }
     }
 
     // Navigation

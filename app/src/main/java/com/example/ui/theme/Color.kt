@@ -1,5 +1,7 @@
 package com.example.ui.theme
 
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 
 // Iconic BiriKhor Theme Palette: Yellow, Red, Black
@@ -21,3 +23,53 @@ val BiriBorderDark = Color(0xFF333333)   // Subtle Border
 val BiriWhite = Color(0xFFFFFFFF)
 val BiriTextMuted = Color(0xFFAAAAAA)
 val BiriGreen = Color(0xFF4CAF50)
+
+data class AppCustomColors(
+    val isDark: Boolean,
+    val background: Color,
+    val cardBackground: Color,
+    val elevatedBackground: Color,
+    val border: Color,
+    val textPrimary: Color,
+    val textSecondary: Color,
+    val textMuted: Color,
+    val accentYellow: Color,
+    val accentRed: Color,
+    val accentGreen: Color
+)
+
+val DarkCustomColors = AppCustomColors(
+    isDark = true,
+    background = Color(0xFF101010),
+    cardBackground = Color(0xFF1E1E1E),
+    elevatedBackground = Color(0xFF282828),
+    border = Color(0xFF383838),
+    textPrimary = Color.White,
+    textSecondary = Color(0xFFCCCCCC),
+    textMuted = Color(0xFF888888),
+    accentYellow = BiriYellow,
+    accentRed = BiriRed,
+    accentGreen = BiriGreen
+)
+
+val LightCustomColors = AppCustomColors(
+    isDark = false,
+    background = Color(0xFFF4F5F7),
+    cardBackground = Color(0xFFFFFFFF),
+    elevatedBackground = Color(0xFFE9ECEF),
+    border = Color(0xFFD6D9DE),
+    textPrimary = Color(0xFF1A1A1A),
+    textSecondary = Color(0xFF444444),
+    textMuted = Color(0xFF757575),
+    accentYellow = Color(0xFFD97706), // Deep Amber for light theme contrast
+    accentRed = Color(0xFFD32F2F),
+    accentGreen = Color(0xFF2E7D32)
+)
+
+val LocalAppColors = staticCompositionLocalOf { DarkCustomColors }
+
+object AppTheme {
+    val colors: AppCustomColors
+        @Composable
+        get() = LocalAppColors.current
+}

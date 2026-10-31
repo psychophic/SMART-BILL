@@ -4,6 +4,7 @@ import com.example.models.Product
 import com.example.models.Expense
 import com.example.models.AppSetting
 import com.example.models.Customer
+import com.example.models.BillRecord
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 
@@ -11,11 +12,13 @@ class BillingRepository(
     private val productDao: ProductDao,
     private val expenseDao: ExpenseDao,
     private val appSettingDao: AppSettingDao,
-    private val customerDao: CustomerDao
+    private val customerDao: CustomerDao,
+    private val billRecordDao: BillRecordDao
 ) {
     val allProducts: Flow<List<Product>> = productDao.getAllProducts()
     val allExpenses: Flow<List<Expense>> = expenseDao.getAllExpenses()
     val allCustomers: Flow<List<Customer>> = customerDao.getAllCustomers()
+    val allBillRecords: Flow<List<BillRecord>> = billRecordDao.getAllRecords()
 
     suspend fun seedDefaultsIfEmpty() {
         seedProducts()
@@ -155,6 +158,23 @@ class BillingRepository(
         }
     }
 
+    // Bill Records / History
+    suspend fun recordBill(record: BillRecord): Long {
+        return billRecordDao.insertRecord(record)
+    }
+
+    suspend fun deleteBillRecord(record: BillRecord) {
+        billRecordDao.deleteRecord(record)
+    }
+
+    fun getRecordsForCustomer(customerId: Long): Flow<List<BillRecord>> {
+        return billRecordDao.getRecordsForCustomer(customerId)
+    }
+
+    fun getRecordsForMonth(monthKey: String): Flow<List<BillRecord>> {
+        return billRecordDao.getRecordsForMonth(monthKey)
+    }
+
     // App Settings
     fun getSettingFlow(key: String): Flow<AppSetting?> = appSettingDao.getSettingFlow(key)
     suspend fun getSettingValue(key: String): String? = appSettingDao.getSetting(key)?.value
@@ -166,6 +186,7 @@ class BillingRepository(
         productDao.clearAllProducts()
         expenseDao.clearAllExpenses()
         customerDao.clearAllCustomers()
+        billRecordDao.clearAllRecords()
         val defaults = getDefaultBengaliProducts()
         productDao.insertProducts(defaults)
         seedCustomers()

@@ -1,8 +1,5 @@
 package com.example.ui.screens
 
-import android.content.ClipData
-import android.content.ClipboardManager
-import android.content.Context
 import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -39,7 +36,7 @@ fun SettingsScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(BiriBlack)
+            .background(AppTheme.colors.background)
             .padding(paddingValues)
     ) {
         LazyColumn(
@@ -55,12 +52,12 @@ fun SettingsScreen(
                         text = "সেটিংস",
                         style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.ExtraBold,
-                        color = BiriYellow
+                        color = AppTheme.colors.accentYellow
                     )
                     Text(
                         text = "অ্যাপের থিম এবং নিয়ন্ত্রণ",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = Color.LightGray
+                        color = AppTheme.colors.textSecondary
                     )
                 }
             }
@@ -71,7 +68,7 @@ fun SettingsScreen(
                     text = "ডিসপ্লে ও থিম",
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold,
-                    color = BiriYellow,
+                    color = AppTheme.colors.accentYellow,
                     modifier = Modifier.padding(top = 8.dp)
                 )
             }
@@ -80,17 +77,23 @@ fun SettingsScreen(
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = BiriBlackCard),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, BiriBorderDark)
+                    colors = CardDefaults.cardColors(containerColor = AppTheme.colors.cardBackground),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, AppTheme.colors.border)
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Text(
                             text = "থিম নির্বাচন করুন",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
-                            color = Color.White
+                            color = AppTheme.colors.textPrimary
                         )
-                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            text = "ডার্ক, লাইট অথবা আপনার ফোনের সিস্টেম থিম বাছাই করুন",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = AppTheme.colors.textSecondary,
+                            modifier = Modifier.padding(top = 2.dp)
+                        )
+                        Spacer(modifier = Modifier.height(14.dp))
 
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -106,9 +109,10 @@ fun SettingsScreen(
                                 Button(
                                     onClick = { provider.setDarkModeSetting(mode) },
                                     colors = ButtonDefaults.buttonColors(
-                                        containerColor = if (isSelected) BiriYellow else Color(0xFF282828),
-                                        contentColor = if (isSelected) Color.Black else Color.LightGray
+                                        containerColor = if (isSelected) AppTheme.colors.accentYellow else AppTheme.colors.elevatedBackground,
+                                        contentColor = if (isSelected) Color.Black else AppTheme.colors.textPrimary
                                     ),
+                                    border = if (isSelected) null else androidx.compose.foundation.BorderStroke(1.dp, AppTheme.colors.border),
                                     shape = RoundedCornerShape(10.dp),
                                     modifier = Modifier.weight(1f)
                                 ) {
@@ -129,7 +133,7 @@ fun SettingsScreen(
                     text = "ডাটা রিসেট",
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold,
-                    color = BiriYellow,
+                    color = AppTheme.colors.accentYellow,
                     modifier = Modifier.padding(top = 8.dp)
                 )
             }
@@ -138,8 +142,8 @@ fun SettingsScreen(
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = BiriBlackCard),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, BiriBorderDark)
+                    colors = CardDefaults.cardColors(containerColor = AppTheme.colors.cardBackground),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, AppTheme.colors.border)
                 ) {
                     Column(
                         modifier = Modifier.padding(16.dp),
@@ -149,17 +153,17 @@ fun SettingsScreen(
                             text = "ডিফল্ট ডাটা রিস্টোর",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
-                            color = Color.White
+                            color = AppTheme.colors.textPrimary
                         )
                         Text(
                             text = "সকল প্রোডাক্ট এবং ১৬ জন ডিফল্ট কাস্টমার পুনরায় লোড করতে চাইলে রিসেট বাটনে চাপুন।",
                             style = MaterialTheme.typography.bodySmall,
-                            color = Color.LightGray
+                            color = AppTheme.colors.textSecondary
                         )
                         Button(
                             onClick = { showResetConfirm = true },
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = BiriRed,
+                                containerColor = AppTheme.colors.accentRed,
                                 contentColor = Color.White
                             ),
                             shape = RoundedCornerShape(10.dp),
@@ -179,7 +183,7 @@ fun SettingsScreen(
                     text = "অ্যাপ পরিচিতি",
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold,
-                    color = BiriYellow,
+                    color = AppTheme.colors.accentYellow,
                     modifier = Modifier.padding(top = 8.dp)
                 )
             }
@@ -188,8 +192,8 @@ fun SettingsScreen(
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = BiriBlackCard),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, BiriYellow.copy(alpha = 0.5f))
+                    colors = CardDefaults.cardColors(containerColor = AppTheme.colors.cardBackground),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, AppTheme.colors.accentYellow.copy(alpha = 0.5f))
                 ) {
                     Column(
                         modifier = Modifier
@@ -202,8 +206,8 @@ fun SettingsScreen(
                             modifier = Modifier
                                 .size(72.dp)
                                 .clip(RoundedCornerShape(16.dp))
-                                .border(2.dp, BiriYellow, RoundedCornerShape(16.dp))
-                                .background(BiriBlackElevated)
+                                .border(2.dp, AppTheme.colors.accentYellow, RoundedCornerShape(16.dp))
+                                .background(AppTheme.colors.elevatedBackground)
                         ) {
                             Image(
                                 painter = painterResource(id = R.drawable.app_icon_asset),
@@ -216,19 +220,19 @@ fun SettingsScreen(
                             text = "বিড়িখোর বিল",
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.ExtraBold,
-                            color = BiriYellow
+                            color = AppTheme.colors.accentYellow
                         )
                         Text(
-                            text = "ভার্সন ১.২.০ (Bengali Customer Edition)",
+                            text = "ভার্সন ১.৩.০ (Instant & Due-Payment Edition)",
                             style = MaterialTheme.typography.bodySmall,
-                            color = Color.LightGray
+                            color = AppTheme.colors.textSecondary
                         )
-                        Divider(color = BiriBorderDark, modifier = Modifier.padding(vertical = 4.dp))
+                        Divider(color = AppTheme.colors.border, modifier = Modifier.padding(vertical = 4.dp))
                         Text(
                             text = "Developed by Shanewas Shan",
                             style = MaterialTheme.typography.bodyLarge,
                             fontWeight = FontWeight.Bold,
-                            color = BiriRed
+                            color = AppTheme.colors.accentRed
                         )
                     }
                 }
@@ -239,8 +243,8 @@ fun SettingsScreen(
         if (showResetConfirm) {
             AlertDialog(
                 onDismissRequest = { showResetConfirm = false },
-                title = { Text("রিসেট নিশ্চিতকরণ", color = BiriRed, fontWeight = FontWeight.Bold) },
-                text = { Text("আপনি কি নিশ্চিতভাবে সব প্রোডাক্ট এবং ক্রেতার খাতা ডিফল্ট অবস্থায় ফিরিয়ে নিতে চান?", color = Color.LightGray) },
+                title = { Text("রিসেট নিশ্চিতকরণ", color = AppTheme.colors.accentRed, fontWeight = FontWeight.Bold) },
+                text = { Text("আপনি কি নিশ্চিতভাবে সব প্রোডাক্ট এবং ক্রেতার খাতা ডিফল্ট অবস্থায় ফিরিয়ে নিতে চান?", color = AppTheme.colors.textPrimary) },
                 confirmButton = {
                     Button(
                         onClick = {
@@ -249,7 +253,7 @@ fun SettingsScreen(
                             Toast.makeText(context, "ডিফল্ট ডাটা রিস্টোর সম্পন্ন হয়েছে", Toast.LENGTH_SHORT).show()
                         },
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = BiriRed,
+                            containerColor = AppTheme.colors.accentRed,
                             contentColor = Color.White
                         )
                     ) {
@@ -258,10 +262,10 @@ fun SettingsScreen(
                 },
                 dismissButton = {
                     TextButton(onClick = { showResetConfirm = false }) {
-                        Text("বাতিল", color = Color.Gray)
+                        Text("বাতিল", color = AppTheme.colors.textMuted)
                     }
                 },
-                containerColor = BiriBlackCard
+                containerColor = AppTheme.colors.cardBackground
             )
         }
     }

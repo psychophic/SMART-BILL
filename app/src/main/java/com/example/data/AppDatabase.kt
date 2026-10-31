@@ -8,10 +8,11 @@ import com.example.models.Product
 import com.example.models.Expense
 import com.example.models.AppSetting
 import com.example.models.Customer
+import com.example.models.BillRecord
 
 @Database(
-    entities = [Product::class, Expense::class, AppSetting::class, Customer::class],
-    version = 2,
+    entities = [Product::class, Expense::class, AppSetting::class, Customer::class, BillRecord::class],
+    version = 3,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -19,6 +20,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun expenseDao(): ExpenseDao
     abstract fun appSettingDao(): AppSettingDao
     abstract fun customerDao(): CustomerDao
+    abstract fun billRecordDao(): BillRecordDao
 
     companion object {
         @Volatile

@@ -24,9 +24,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.example.R
-import com.example.models.Customer
 import com.example.providers.BillingProvider
 import com.example.ui.theme.*
+import com.example.utils.DateUtils
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -56,12 +56,18 @@ fun HomeScreen(
     var showAddCustomerDialog by remember { mutableStateOf(false) }
     var newCustomerName by remember { mutableStateOf("") }
 
-    // Instant Counter Bill sheet/mode toggle
-    var showInstantCounterBill by remember { mutableStateOf(false) }
+    // Sort customers: Customers with dues are sorted first and highlighted
+    val sortedCustomers = remember(customers) {
+        customers.sortedWith(
+            compareByDescending<com.example.models.Customer> { it.totalBill > 0 }
+                .thenByDescending { it.totalBill }
+                .thenBy { it.id }
+        )
+    }
 
     // Filtered customer list
-    val filteredCustomers = remember(customers, searchQuery, selectedFilter) {
-        customers.filter { cust ->
+    val filteredCustomers = remember(sortedCustomers, searchQuery, selectedFilter) {
+        sortedCustomers.filter { cust ->
             val matchesSearch = cust.name.contains(searchQuery.trim(), ignoreCase = true)
             val matchesFilter = when (selectedFilter) {
                 "DUE" -> cust.totalBill > 0
@@ -83,7 +89,7 @@ fun HomeScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(BiriBlack)
+            .background(AppTheme.colors.background)
             .padding(paddingValues)
     ) {
         LazyColumn(
@@ -97,9 +103,9 @@ fun HomeScreen(
             item {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = BiriBlackCard),
+                    colors = CardDefaults.cardColors(containerColor = AppTheme.colors.cardBackground),
                     shape = RoundedCornerShape(20.dp),
-                    border = androidx.compose.foundation.BorderStroke(2.dp, BiriYellow)
+                    border = androidx.compose.foundation.BorderStroke(2.dp, AppTheme.colors.accentYellow)
                 ) {
                     Column(
                         modifier = Modifier
@@ -116,8 +122,8 @@ fun HomeScreen(
                                 modifier = Modifier
                                     .size(68.dp)
                                     .clip(RoundedCornerShape(16.dp))
-                                    .border(2.dp, BiriYellow, RoundedCornerShape(16.dp))
-                                    .background(BiriBlackElevated)
+                                    .border(2.dp, AppTheme.colors.accentYellow, RoundedCornerShape(16.dp))
+                                    .background(AppTheme.colors.elevatedBackground)
                             ) {
                                 Image(
                                     painter = painterResource(id = R.drawable.app_icon_asset),
@@ -131,26 +137,26 @@ fun HomeScreen(
                                     text = "বিড়িখোর বিল",
                                     style = MaterialTheme.typography.headlineMedium,
                                     fontWeight = FontWeight.ExtraBold,
-                                    color = BiriYellow,
+                                    color = AppTheme.colors.accentYellow,
                                     letterSpacing = 0.5.sp
                                 )
                                 Text(
                                     text = "দোকানের খাতা ও ডিজিটাল ক্যাশ মেমো",
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = Color.LightGray
+                                    color = AppTheme.colors.textSecondary
                                 )
                                 Text(
                                     text = "Developed by Shanewas Shan",
                                     style = MaterialTheme.typography.labelSmall,
                                     fontWeight = FontWeight.Bold,
-                                    color = BiriRed,
+                                    color = AppTheme.colors.accentRed,
                                     modifier = Modifier.padding(top = 4.dp)
                                 )
                             }
                         }
 
                         Spacer(modifier = Modifier.height(14.dp))
-                        Divider(color = BiriBorderDark)
+                        Divider(color = AppTheme.colors.border)
                         Spacer(modifier = Modifier.height(10.dp))
 
                         // Quick Totals Summary
@@ -163,13 +169,13 @@ fun HomeScreen(
                                 Text(
                                     text = "মোট বকেয়া খাতা",
                                     style = MaterialTheme.typography.labelSmall,
-                                    color = Color.Gray
+                                    color = AppTheme.colors.textMuted
                                 )
                                 Text(
-                                    text = "৳ ${String.format("%.0f", totalDueLedger)}",
+                                    text = "৳ ${DateUtils.toBengaliDigits(totalDueLedger)}",
                                     style = MaterialTheme.typography.titleLarge,
                                     fontWeight = FontWeight.ExtraBold,
-                                    color = if (totalDueLedger > 0) BiriRed else BiriGreen
+                                    color = if (totalDueLedger > 0) AppTheme.colors.accentRed else AppTheme.colors.accentGreen
                                 )
                             }
 
@@ -177,13 +183,13 @@ fun HomeScreen(
                                 Text(
                                     text = "বকেয়া কাস্টমার",
                                     style = MaterialTheme.typography.labelSmall,
-                                    color = Color.Gray
+                                    color = AppTheme.colors.textMuted
                                 )
                                 Text(
-                                    text = "$dueCustomersCount / ${customers.size} জন",
+                                    text = "${DateUtils.toBengaliDigits(dueCustomersCount)} / ${DateUtils.toBengaliDigits(customers.size)} জন",
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.Bold,
-                                    color = BiriYellow
+                                    color = AppTheme.colors.accentYellow
                                 )
                             }
                         }
@@ -191,7 +197,7 @@ fun HomeScreen(
                 }
             }
 
-            // Quick Actions: Add Customer & Instant Counter Bill
+            // Quick Actions: "+ নতুন ক্রেতা" & "পুরনো হিসাব"
             item {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -200,7 +206,7 @@ fun HomeScreen(
                     Button(
                         onClick = { showAddCustomerDialog = true },
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = BiriYellow,
+                            containerColor = AppTheme.colors.accentYellow,
                             contentColor = Color.Black
                         ),
                         shape = RoundedCornerShape(12.dp),
@@ -221,42 +227,32 @@ fun HomeScreen(
                         )
                     }
 
-                    OutlinedButton(
-                        onClick = { showInstantCounterBill = !showInstantCounterBill },
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = if (showInstantCounterBill) BiriRed else Color.White
+                    // "পুরনো হিসাব" Button (as requested by user)
+                    Button(
+                        onClick = { provider.selectTab("history") },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = AppTheme.colors.cardBackground,
+                            contentColor = AppTheme.colors.textPrimary
                         ),
-                        border = androidx.compose.foundation.BorderStroke(
-                            1.dp,
-                            if (showInstantCounterBill) BiriRed else BiriBorderDark
-                        ),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, AppTheme.colors.accentYellow),
                         shape = RoundedCornerShape(12.dp),
                         modifier = Modifier
                             .weight(1f)
                             .height(48.dp)
                     ) {
                         Icon(
-                            imageVector = Icons.Default.PointOfSale,
+                            imageVector = Icons.Default.HistoryEdu,
                             contentDescription = null,
-                            modifier = Modifier.size(18.dp)
+                            tint = AppTheme.colors.accentYellow,
+                            modifier = Modifier.size(20.dp)
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = if (showInstantCounterBill) "খাতায় ফিরুন" else "তাৎক্ষণিক বিল",
+                            text = "পুরনো হিসাব",
                             fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp
+                            fontSize = 15.sp
                         )
                     }
-                }
-            }
-
-            // If Instant Counter Bill Mode is open, render instant product counter
-            if (showInstantCounterBill) {
-                item {
-                    InstantCounterBillCard(
-                        provider = provider,
-                        onNavigateSummary = onNavigateSummary
-                    )
                 }
             }
 
@@ -274,12 +270,12 @@ fun HomeScreen(
                             text = "ক্রেতার খাতা ও হিসাব তালিকা",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
-                            color = BiriYellow
+                            color = AppTheme.colors.accentYellow
                         )
                         Text(
-                            text = "নামে ক্লিক করে পণ্য ও খরচ এড/এডিট করুন",
+                            text = "নামে ক্লিক করে পণ্য ও খরচ এড বা পরিশোধ করুন",
                             style = MaterialTheme.typography.labelSmall,
-                            color = Color.LightGray
+                            color = AppTheme.colors.textSecondary
                         )
                     }
                 }
@@ -291,24 +287,24 @@ fun HomeScreen(
                     OutlinedTextField(
                         value = searchQuery,
                         onValueChange = { searchQuery = it },
-                        placeholder = { Text("ক্রেতার নাম দিয়ে খুঁজুন...", color = Color.Gray) },
+                        placeholder = { Text("ক্রেতার নাম দিয়ে খুঁজুন...", color = AppTheme.colors.textMuted) },
                         leadingIcon = {
-                            Icon(Icons.Default.Search, contentDescription = null, tint = BiriYellow)
+                            Icon(Icons.Default.Search, contentDescription = null, tint = AppTheme.colors.accentYellow)
                         },
                         trailingIcon = {
                             if (searchQuery.isNotEmpty()) {
                                 IconButton(onClick = { searchQuery = "" }) {
-                                    Icon(Icons.Default.Close, contentDescription = "Clear", tint = Color.Gray)
+                                    Icon(Icons.Default.Close, contentDescription = "Clear", tint = AppTheme.colors.textMuted)
                                 }
                             }
                         },
                         singleLine = true,
                         shape = RoundedCornerShape(12.dp),
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = BiriYellow,
-                            unfocusedBorderColor = BiriBorderDark,
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White
+                            focusedBorderColor = AppTheme.colors.accentYellow,
+                            unfocusedBorderColor = AppTheme.colors.border,
+                            focusedTextColor = AppTheme.colors.textPrimary,
+                            unfocusedTextColor = AppTheme.colors.textPrimary
                         ),
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -321,34 +317,34 @@ fun HomeScreen(
                         FilterChip(
                             selected = selectedFilter == "ALL",
                             onClick = { selectedFilter = "ALL" },
-                            label = { Text("সবাই (${customers.size})") },
+                            label = { Text("সবাই (${DateUtils.toBengaliDigits(customers.size)})") },
                             colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = BiriYellow,
+                                selectedContainerColor = AppTheme.colors.accentYellow,
                                 selectedLabelColor = Color.Black,
-                                containerColor = BiriBlackElevated,
-                                labelColor = Color.White
+                                containerColor = AppTheme.colors.cardBackground,
+                                labelColor = AppTheme.colors.textPrimary
                             )
                         )
                         FilterChip(
                             selected = selectedFilter == "DUE",
                             onClick = { selectedFilter = "DUE" },
-                            label = { Text("বকেয়া ($dueCustomersCount)") },
+                            label = { Text("বকেয়া (${DateUtils.toBengaliDigits(dueCustomersCount)})") },
                             colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = BiriRed,
+                                selectedContainerColor = AppTheme.colors.accentRed,
                                 selectedLabelColor = Color.White,
-                                containerColor = BiriBlackElevated,
-                                labelColor = Color.White
+                                containerColor = AppTheme.colors.cardBackground,
+                                labelColor = AppTheme.colors.textPrimary
                             )
                         )
                         FilterChip(
                             selected = selectedFilter == "PAID",
                             onClick = { selectedFilter = "PAID" },
-                            label = { Text("ক্লিয়ার (${customers.size - dueCustomersCount})") },
+                            label = { Text("পরিশোধ (${DateUtils.toBengaliDigits(customers.size - dueCustomersCount)})") },
                             colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = BiriGreen,
+                                selectedContainerColor = AppTheme.colors.accentGreen,
                                 selectedLabelColor = Color.White,
-                                containerColor = BiriBlackElevated,
-                                labelColor = Color.White
+                                containerColor = AppTheme.colors.cardBackground,
+                                labelColor = AppTheme.colors.textPrimary
                             )
                         )
                     }
@@ -360,8 +356,9 @@ fun HomeScreen(
                 item {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(containerColor = BiriBlackCard),
-                        shape = RoundedCornerShape(16.dp)
+                        colors = CardDefaults.cardColors(containerColor = AppTheme.colors.cardBackground),
+                        shape = RoundedCornerShape(16.dp),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, AppTheme.colors.border)
                     ) {
                         Column(
                             modifier = Modifier
@@ -372,13 +369,13 @@ fun HomeScreen(
                             Icon(
                                 imageVector = Icons.Default.SearchOff,
                                 contentDescription = null,
-                                tint = Color.Gray,
+                                tint = AppTheme.colors.textMuted,
                                 modifier = Modifier.size(48.dp)
                             )
                             Spacer(modifier = Modifier.height(8.dp))
                             Text(
                                 text = "কোন ক্রেতা খুঁজে পাওয়া যায়নি",
-                                color = Color.LightGray,
+                                color = AppTheme.colors.textSecondary,
                                 fontWeight = FontWeight.Bold
                             )
                         }
@@ -395,12 +392,16 @@ fun HomeScreen(
                                 provider.openCustomerBilling(customer)
                             },
                         colors = CardDefaults.cardColors(
-                            containerColor = if (hasDue) BiriBlackElevated else BiriBlackCard
+                            containerColor = if (hasDue) {
+                                if (AppTheme.colors.isDark) AppTheme.colors.elevatedBackground else Color(0xFFFFF5F5)
+                            } else {
+                                AppTheme.colors.cardBackground
+                            }
                         ),
                         shape = RoundedCornerShape(16.dp),
                         border = androidx.compose.foundation.BorderStroke(
-                            1.dp,
-                            if (hasDue) BiriRed.copy(alpha = 0.6f) else BiriBorderDark
+                            if (hasDue) 2.dp else 1.dp,
+                            if (hasDue) AppTheme.colors.accentRed else AppTheme.colors.border
                         )
                     ) {
                         Row(
@@ -418,57 +419,99 @@ fun HomeScreen(
                             ) {
                                 Box(
                                     modifier = Modifier
-                                        .size(44.dp)
+                                        .size(46.dp)
                                         .clip(CircleShape)
-                                        .background(if (hasDue) BiriRed else Color(0xFF333333)),
+                                        .background(if (hasDue) AppTheme.colors.accentRed else AppTheme.colors.accentGreen),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Text(
                                         text = customer.name.take(1),
                                         fontWeight = FontWeight.ExtraBold,
-                                        fontSize = 18.sp,
-                                        color = if (hasDue) Color.White else BiriYellow
+                                        fontSize = 19.sp,
+                                        color = Color.White
                                     )
                                 }
 
                                 Column {
-                                    Text(
-                                        text = customer.name,
-                                        style = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color.White
-                                    )
+                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                        Text(
+                                            text = customer.name,
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.Bold,
+                                            color = AppTheme.colors.textPrimary
+                                        )
+                                        if (hasDue) {
+                                            Surface(
+                                                color = AppTheme.colors.accentRed.copy(alpha = 0.15f),
+                                                shape = RoundedCornerShape(6.dp)
+                                            ) {
+                                                Text(
+                                                    text = "বকেয়া",
+                                                    fontSize = 10.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = AppTheme.colors.accentRed,
+                                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                                )
+                                            }
+                                        }
+                                    }
                                     Text(
                                         text = if (hasDue) "বকেয়া বিল আছে" else "হিসাব পরিশোধিত",
                                         style = MaterialTheme.typography.labelSmall,
-                                        color = if (hasDue) BiriYellow else BiriGreen
+                                        color = if (hasDue) AppTheme.colors.accentRed else AppTheme.colors.accentGreen
                                     )
                                 }
                             }
 
-                            // Right side: Total Bill Card Badge
+                            // Right side: Due / Paid Status Badge
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                Surface(
-                                    color = if (hasDue) BiriYellow else Color(0xFF222222),
-                                    shape = RoundedCornerShape(10.dp),
-                                    border = if (hasDue) null else androidx.compose.foundation.BorderStroke(1.dp, BiriBorderDark)
-                                ) {
-                                    Text(
-                                        text = "৳ ${String.format("%.0f", customer.totalBill)}",
-                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                                        fontWeight = FontWeight.ExtraBold,
-                                        fontSize = 16.sp,
-                                        color = if (hasDue) Color.Black else Color.LightGray
-                                    )
+                                if (hasDue) {
+                                    Surface(
+                                        color = AppTheme.colors.accentRed,
+                                        shape = RoundedCornerShape(10.dp)
+                                    ) {
+                                        Text(
+                                            text = "৳ ${DateUtils.toBengaliDigits(customer.totalBill)}",
+                                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                            fontWeight = FontWeight.ExtraBold,
+                                            fontSize = 16.sp,
+                                            color = Color.White
+                                        )
+                                    }
+                                } else {
+                                    Surface(
+                                        color = AppTheme.colors.accentGreen.copy(alpha = 0.15f),
+                                        shape = RoundedCornerShape(10.dp),
+                                        border = androidx.compose.foundation.BorderStroke(1.dp, AppTheme.colors.accentGreen)
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                        ) {
+                                            Icon(
+                                                Icons.Default.Check,
+                                                contentDescription = null,
+                                                tint = AppTheme.colors.accentGreen,
+                                                modifier = Modifier.size(14.dp)
+                                            )
+                                            Text(
+                                                text = "পরিশোধ",
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 14.sp,
+                                                color = AppTheme.colors.accentGreen
+                                            )
+                                        }
+                                    }
                                 }
 
                                 Icon(
                                     imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                                     contentDescription = "বিল দেখুন",
-                                    tint = if (hasDue) BiriYellow else Color.Gray,
+                                    tint = if (hasDue) AppTheme.colors.accentRed else AppTheme.colors.textMuted,
                                     modifier = Modifier.size(18.dp)
                                 )
                             }
@@ -483,8 +526,8 @@ fun HomeScreen(
             Dialog(onDismissRequest = { showAddCustomerDialog = false }) {
                 Card(
                     shape = RoundedCornerShape(20.dp),
-                    colors = CardDefaults.cardColors(containerColor = BiriBlackCard),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, BiriYellow)
+                    colors = CardDefaults.cardColors(containerColor = AppTheme.colors.cardBackground),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, AppTheme.colors.accentYellow)
                 ) {
                     Column(
                         modifier = Modifier
@@ -496,7 +539,7 @@ fun HomeScreen(
                             text = "নতুন ক্রেতা যোগ করুন",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
-                            color = BiriYellow
+                            color = AppTheme.colors.accentYellow
                         )
 
                         OutlinedTextField(
@@ -506,11 +549,11 @@ fun HomeScreen(
                             placeholder = { Text("যেমন: রফিক, কালাম...") },
                             singleLine = true,
                             colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = BiriYellow,
-                                unfocusedBorderColor = BiriBorderDark,
-                                focusedLabelColor = BiriYellow,
-                                focusedTextColor = Color.White,
-                                unfocusedTextColor = Color.White
+                                focusedBorderColor = AppTheme.colors.accentYellow,
+                                unfocusedBorderColor = AppTheme.colors.border,
+                                focusedLabelColor = AppTheme.colors.accentYellow,
+                                focusedTextColor = AppTheme.colors.textPrimary,
+                                unfocusedTextColor = AppTheme.colors.textPrimary
                             ),
                             modifier = Modifier.fillMaxWidth()
                         )
@@ -526,7 +569,7 @@ fun HomeScreen(
                                 },
                                 modifier = Modifier.weight(1f)
                             ) {
-                                Text("বাতিল", color = Color.Gray)
+                                Text("বাতিল", color = AppTheme.colors.textMuted)
                             }
 
                             Button(
@@ -538,7 +581,7 @@ fun HomeScreen(
                                     }
                                 },
                                 colors = ButtonDefaults.buttonColors(
-                                    containerColor = BiriYellow,
+                                    containerColor = AppTheme.colors.accentYellow,
                                     contentColor = Color.Black
                                 ),
                                 shape = RoundedCornerShape(10.dp),
@@ -548,123 +591,6 @@ fun HomeScreen(
                             }
                         }
                     }
-                }
-            }
-        }
-    }
-}
-
-// Sub-composable for Instant Walk-In Counter Billing
-@Composable
-fun InstantCounterBillCard(
-    provider: BillingProvider,
-    onNavigateSummary: () -> Unit
-) {
-    val products by provider.products.collectAsState()
-    val quantities by provider.quantities.collectAsState()
-    val expenses by provider.expenses.collectAsState()
-
-    val totalCounter = remember(quantities, expenses, products) {
-        val prodMap = products.associate { it.id to it.price }
-        var sum = 0.0
-        quantities.forEach { (pId, qty) ->
-            sum += (prodMap[pId] ?: 0.0) * qty
-        }
-        expenses.forEach { sum += it.amount }
-        sum
-    }
-
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = BiriBlackElevated),
-        shape = RoundedCornerShape(16.dp),
-        border = androidx.compose.foundation.BorderStroke(1.dp, BiriRed)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column {
-                    Text(
-                        text = "তাৎক্ষণিক কাউন্টার ক্যাশ মেমো",
-                        fontWeight = FontWeight.Bold,
-                        color = BiriYellow,
-                        fontSize = 15.sp
-                    )
-                    Text(
-                        text = "হাতে হাতে বিল করে ক্লিয়ার করার জন্য",
-                        color = Color.LightGray,
-                        fontSize = 12.sp
-                    )
-                }
-
-                Text(
-                    text = "৳ ${String.format("%.0f", totalCounter)}",
-                    fontWeight = FontWeight.ExtraBold,
-                    fontSize = 18.sp,
-                    color = BiriRed
-                )
-            }
-
-            // Quick Product increments
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                products.take(4).forEach { prod ->
-                    val q = quantities[prod.id] ?: 0
-                    OutlinedButton(
-                        onClick = { provider.incrementQuantity(prod.id) },
-                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
-                        modifier = Modifier.weight(1f),
-                        border = androidx.compose.foundation.BorderStroke(
-                            1.dp,
-                            if (q > 0) BiriYellow else BiriBorderDark
-                        ),
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            containerColor = if (q > 0) BiriYellow.copy(alpha = 0.15f) else Color.Transparent
-                        )
-                    ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(prod.name.take(6), fontSize = 11.sp, color = Color.White, maxLines = 1)
-                            Text(
-                                if (q > 0) "($q)" else "+ ৳${prod.price.toInt()}",
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = BiriYellow
-                            )
-                        }
-                    }
-                }
-            }
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                OutlinedButton(
-                    onClick = { provider.resetQuantities() },
-                    modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.LightGray)
-                ) {
-                    Text("রিসেট", fontSize = 13.sp)
-                }
-                Button(
-                    onClick = onNavigateSummary,
-                    modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = BiriRed,
-                        contentColor = Color.White
-                    )
-                ) {
-                    Text("মেমো দেখুন", fontWeight = FontWeight.Bold, fontSize = 13.sp)
                 }
             }
         }

@@ -1,5 +1,6 @@
 package com.example.ui.screens
 
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -19,6 +20,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -30,6 +32,7 @@ import com.example.models.Customer
 import com.example.models.Product
 import com.example.providers.BillingProvider
 import com.example.ui.theme.*
+import com.example.utils.DateUtils
 import com.example.utils.IconUtils
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -39,17 +42,17 @@ fun CustomerBillScreen(
     provider: BillingProvider,
     onBack: () -> Unit
 ) {
-    // Hardware/gesture back handler
+    // Back navigation
     BackHandler {
         onBack()
     }
 
+    val context = LocalContext.current
     val products by provider.products.collectAsState()
     val quantities by provider.customerQuantities.collectAsState()
     val expenses by provider.customerExpenses.collectAsState()
 
     var showClearDialog by remember { mutableStateOf(false) }
-    var showSavedSnackbar by remember { mutableStateOf(false) }
     var showDeleteCustomerDialog by remember { mutableStateOf(false) }
 
     // Direct quantity editor dialog
@@ -60,8 +63,8 @@ fun CustomerBillScreen(
     var expenseAmount by remember { mutableStateOf("") }
     val keyboardController = LocalSoftwareKeyboardController.current
 
-    // Calculate total bill
-    val currentTotal = remember(quantities, expenses, products) {
+    // Calculate current items in cart
+    val cartItemsTotal = remember(quantities, expenses, products) {
         val prodMap = products.associate { it.id to it.price }
         var sum = 0.0
         quantities.forEach { (pId, qty) ->
@@ -70,6 +73,8 @@ fun CustomerBillScreen(
         expenses.forEach { sum += it }
         sum
     }
+
+    val totalWithPreviousDue = customer.totalBill + cartItemsTotal
 
     Scaffold(
         topBar = {
@@ -80,12 +85,12 @@ fun CustomerBillScreen(
                             text = customer.name,
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
-                            color = BiriYellow
+                            color = AppTheme.colors.accentYellow
                         )
                         Text(
                             text = "ব্যক্তিগত হিসাব ও খাতা",
                             style = MaterialTheme.typography.labelSmall,
-                            color = Color.LightGray
+                            color = AppTheme.colors.textSecondary
                         )
                     }
                 },
@@ -94,24 +99,11 @@ fun CustomerBillScreen(
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "ফিরে যান",
-                            tint = Color.White
+                            tint = AppTheme.colors.textPrimary
                         )
                     }
                 },
                 actions = {
-                    // Clear / Settle bill button
-                    IconButton(
-                        onClick = { showClearDialog = true },
-                        colors = IconButtonDefaults.iconButtonColors(
-                            containerColor = BiriRed.copy(alpha = 0.2f)
-                        )
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.CheckCircle,
-                            contentDescription = "হিসাব পরিশোধ / ক্লিয়ার",
-                            tint = BiriRed
-                        )
-                    }
                     // Delete customer
                     IconButton(
                         onClick = { showDeleteCustomerDialog = true }
@@ -119,28 +111,31 @@ fun CustomerBillScreen(
                         Icon(
                             imageVector = Icons.Default.DeleteOutline,
                             contentDescription = "ক্রেতা মুছুন",
-                            tint = Color.Gray
+                            tint = AppTheme.colors.textMuted
                         )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = BiriBlack
+                    containerColor = AppTheme.colors.cardBackground
                 )
             )
         },
         bottomBar = {
-            // Sticky Bottom Action Bar with Total and Save button
+            // Sticky Bottom Action Bar with Total, "বাকী" and "পরিশোধ" buttons
             Surface(
                 modifier = Modifier.fillMaxWidth(),
-                color = BiriBlackCard,
+                color = AppTheme.colors.cardBackground,
                 tonalElevation = 8.dp,
-                shadowElevation = 8.dp
+                shadowElevation = 8.dp,
+                border = androidx.compose.foundation.BorderStroke(1.dp, AppTheme.colors.border)
             ) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 12.dp)
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
+                    // Total Display Row
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -148,49 +143,110 @@ fun CustomerBillScreen(
                     ) {
                         Column {
                             Text(
-                                text = "সর্বমোট বকেয়া বিল",
+                                text = if (cartItemsTotal > 0) "নতুন সিলেক্টেড বিল" else "পূর্বের বকেয়া",
                                 style = MaterialTheme.typography.labelMedium,
-                                color = Color.Gray
+                                color = AppTheme.colors.textMuted
                             )
                             Text(
-                                text = "৳ ${String.format("%.0f", currentTotal)}",
-                                style = MaterialTheme.typography.headlineMedium,
+                                text = "৳ ${DateUtils.toBengaliDigits(if (cartItemsTotal > 0) cartItemsTotal else customer.totalBill)}",
+                                style = MaterialTheme.typography.headlineSmall,
                                 fontWeight = FontWeight.ExtraBold,
-                                color = if (currentTotal > 0) BiriYellow else Color.White
+                                color = if (cartItemsTotal > 0 || customer.totalBill > 0) AppTheme.colors.accentRed else AppTheme.colors.textPrimary
                             )
                         }
 
+                        if (cartItemsTotal > 0 && customer.totalBill > 0) {
+                            Column(horizontalAlignment = Alignment.End) {
+                                Text(
+                                    text = "আগের বকেয়াসহ মোট",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = AppTheme.colors.textMuted
+                                )
+                                Text(
+                                    text = "৳ ${DateUtils.toBengaliDigits(totalWithPreviousDue)}",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = AppTheme.colors.accentYellow
+                                )
+                            }
+                        }
+                    }
+
+                    // Two Primary Action Buttons: "বাকী" and "পরিশোধ"
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        // "বাকী" Button (Red)
                         Button(
                             onClick = {
-                                provider.saveActiveCustomerBill()
-                                showSavedSnackbar = true
+                                if (cartItemsTotal > 0 || customer.totalBill > 0) {
+                                    provider.saveCustomerDueBill()
+                                    Toast.makeText(context, "${customer.name} এর খাতায় বাকী যোগ করা হয়েছে", Toast.LENGTH_SHORT).show()
+                                    onBack()
+                                } else {
+                                    Toast.makeText(context, "কোন পণ্য বা হিসাব সিলেক্ট করা নেই", Toast.LENGTH_SHORT).show()
+                                }
                             },
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = BiriYellow,
-                                contentColor = Color.Black
+                                containerColor = AppTheme.colors.accentRed,
+                                contentColor = Color.White
                             ),
                             shape = RoundedCornerShape(12.dp),
                             modifier = Modifier
+                                .weight(1f)
                                 .height(50.dp)
-                                .defaultMinSize(minWidth = 140.dp)
                         ) {
                             Icon(
-                                imageVector = Icons.Default.Save,
+                                imageVector = Icons.Default.BookmarkAdd,
                                 contentDescription = null,
                                 modifier = Modifier.size(20.dp)
                             )
-                            Spacer(modifier = Modifier.width(8.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
                             Text(
-                                text = "বিল সেভ করুন",
+                                text = "বাকী (খাতায় যোগ)",
                                 fontWeight = FontWeight.Bold,
-                                fontSize = 16.sp
+                                fontSize = 14.sp
+                            )
+                        }
+
+                        // "পরিশোধ" Button (Green)
+                        Button(
+                            onClick = {
+                                if (cartItemsTotal > 0 || customer.totalBill > 0) {
+                                    provider.settleCustomerPaidBill()
+                                    Toast.makeText(context, "${customer.name} এর হিসাব পরিশোধ করা হয়েছে", Toast.LENGTH_SHORT).show()
+                                    onBack()
+                                } else {
+                                    Toast.makeText(context, "কোন বকেয়া বা বিল অবশিষ্ট নেই", Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = AppTheme.colors.accentGreen,
+                                contentColor = Color.White
+                            ),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(50.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.CheckCircle,
+                                contentDescription = null,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "পরিশোধ",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 15.sp
                             )
                         }
                     }
                 }
             }
         },
-        containerColor = BiriBlack
+        containerColor = AppTheme.colors.background
     ) { innerPadding ->
         Box(
             modifier = Modifier
@@ -202,17 +258,18 @@ fun CustomerBillScreen(
                     .fillMaxSize()
                     .padding(horizontal = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
-                contentPadding = PaddingValues(top = 8.dp, bottom = 24.dp)
+                contentPadding = PaddingValues(top = 10.dp, bottom = 24.dp)
             ) {
                 // Customer Status Banner
                 item {
+                    val hasDue = customer.totalBill > 0
                     Card(
                         modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(containerColor = BiriBlackCard),
+                        colors = CardDefaults.cardColors(containerColor = AppTheme.colors.cardBackground),
                         shape = RoundedCornerShape(16.dp),
                         border = androidx.compose.foundation.BorderStroke(
                             1.dp,
-                            if (currentTotal > 0) BiriRed.copy(alpha = 0.5f) else BiriBorderDark
+                            if (hasDue) AppTheme.colors.accentRed else AppTheme.colors.border
                         )
                     ) {
                         Row(
@@ -230,47 +287,57 @@ fun CustomerBillScreen(
                                     modifier = Modifier
                                         .size(46.dp)
                                         .clip(CircleShape)
-                                        .background(if (currentTotal > 0) BiriRed else BiriYellow),
+                                        .background(if (hasDue) AppTheme.colors.accentRed else AppTheme.colors.accentGreen),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Text(
                                         text = customer.name.take(1),
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 20.sp,
-                                        color = if (currentTotal > 0) Color.White else Color.Black
+                                        color = Color.White
                                     )
                                 }
                                 Column {
                                     Text(
                                         text = "${customer.name} এর হিসাব",
                                         fontWeight = FontWeight.Bold,
-                                        fontSize = 18.sp,
-                                        color = Color.White
+                                        fontSize = 17.sp,
+                                        color = AppTheme.colors.textPrimary
                                     )
                                     Text(
-                                        text = if (currentTotal > 0) "বকেয়া বিল আছে" else "হিসাব পরিশোধিত",
-                                        fontSize = 12.sp,
-                                        color = if (currentTotal > 0) BiriYellow else BiriGreen
+                                        text = if (hasDue) "বকেয়া: ৳ ${DateUtils.toBengaliDigits(customer.totalBill)}" else "হিসাব সম্পূর্ণ পরিশোধিত",
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = if (hasDue) AppTheme.colors.accentRed else AppTheme.colors.accentGreen
                                     )
                                 }
                             }
 
-                            if (currentTotal > 0) {
-                                OutlinedButton(
-                                    onClick = { showClearDialog = true },
-                                    colors = ButtonDefaults.outlinedButtonColors(
-                                        contentColor = BiriRed
-                                    ),
-                                    border = androidx.compose.foundation.BorderStroke(1.dp, BiriRed),
-                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                            if (hasDue) {
+                                Surface(
+                                    color = AppTheme.colors.accentRed.copy(alpha = 0.15f),
+                                    shape = RoundedCornerShape(8.dp)
                                 ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Check,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(16.dp)
+                                    Text(
+                                        text = "বাকী আছে",
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = AppTheme.colors.accentRed
                                     )
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text("পরিশোধ", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                }
+                            } else {
+                                Surface(
+                                    color = AppTheme.colors.accentGreen.copy(alpha = 0.15f),
+                                    shape = RoundedCornerShape(8.dp)
+                                ) {
+                                    Text(
+                                        text = "পরিশোধ",
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = AppTheme.colors.accentGreen
+                                    )
                                 }
                             }
                         }
@@ -290,17 +357,17 @@ fun CustomerBillScreen(
                             text = "পণ্য সমূহ (প্রোডাক্ট লিস্ট)",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
-                            color = BiriYellow
+                            color = AppTheme.colors.accentYellow
                         )
                         Text(
-                            text = "সংখ্যা যোগ বা বিয়োগ করুন",
+                            text = "+ / - দিয়ে কোয়ান্টিটি যোগ করুন",
                             style = MaterialTheme.typography.labelSmall,
-                            color = Color.Gray
+                            color = AppTheme.colors.textMuted
                         )
                     }
                 }
 
-                // Products items
+                // Products list
                 items(products, key = { it.id }) { product ->
                     val qty = quantities[product.id] ?: 0
                     val subtotal = qty * product.price
@@ -308,12 +375,12 @@ fun CustomerBillScreen(
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         colors = CardDefaults.cardColors(
-                            containerColor = if (qty > 0) BiriBlackElevated else BiriBlackCard
+                            containerColor = if (qty > 0) AppTheme.colors.elevatedBackground else AppTheme.colors.cardBackground
                         ),
                         shape = RoundedCornerShape(14.dp),
                         border = androidx.compose.foundation.BorderStroke(
                             1.dp,
-                            if (qty > 0) BiriYellow.copy(alpha = 0.6f) else BiriBorderDark
+                            if (qty > 0) AppTheme.colors.accentYellow.copy(alpha = 0.8f) else AppTheme.colors.border
                         )
                     ) {
                         Row(
@@ -333,13 +400,13 @@ fun CustomerBillScreen(
                                     modifier = Modifier
                                         .size(42.dp)
                                         .clip(RoundedCornerShape(10.dp))
-                                        .background(if (qty > 0) BiriYellow.copy(alpha = 0.2f) else Color(0xFF222222)),
+                                        .background(if (qty > 0) AppTheme.colors.accentYellow.copy(alpha = 0.2f) else AppTheme.colors.elevatedBackground),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Icon(
                                         imageVector = IconUtils.getIconForType(product.iconType),
                                         contentDescription = null,
-                                        tint = if (qty > 0) BiriYellow else Color.LightGray,
+                                        tint = if (qty > 0) AppTheme.colors.accentYellow else AppTheme.colors.textSecondary,
                                         modifier = Modifier.size(24.dp)
                                     )
                                 }
@@ -349,19 +416,19 @@ fun CustomerBillScreen(
                                         text = product.name,
                                         style = MaterialTheme.typography.bodyLarge,
                                         fontWeight = FontWeight.Bold,
-                                        color = Color.White
+                                        color = AppTheme.colors.textPrimary
                                     )
                                     Text(
-                                        text = "৳ ${String.format("%.0f", product.price)} প্রতি পিস",
+                                        text = "৳ ${DateUtils.toBengaliDigits(product.price)} প্রতি পিস",
                                         style = MaterialTheme.typography.bodySmall,
-                                        color = Color.LightGray
+                                        color = AppTheme.colors.textSecondary
                                     )
                                     if (qty > 0) {
                                         Text(
-                                            text = "সাবটোটাল: ৳ ${String.format("%.0f", subtotal)}",
+                                            text = "সাবটোটাল: ৳ ${DateUtils.toBengaliDigits(subtotal)}",
                                             style = MaterialTheme.typography.labelSmall,
                                             fontWeight = FontWeight.SemiBold,
-                                            color = BiriYellow
+                                            color = AppTheme.colors.accentYellow
                                         )
                                     }
                                 }
@@ -377,51 +444,52 @@ fun CustomerBillScreen(
                                     onClick = { provider.decrementCustomerQuantity(product.id) },
                                     enabled = qty > 0,
                                     colors = IconButtonDefaults.iconButtonColors(
-                                        containerColor = if (qty > 0) BiriRedContainer else Color(0xFF222222),
-                                        contentColor = if (qty > 0) BiriRed else Color.DarkGray
+                                        containerColor = if (qty > 0) AppTheme.colors.accentRed.copy(alpha = 0.15f) else AppTheme.colors.elevatedBackground,
+                                        contentColor = if (qty > 0) AppTheme.colors.accentRed else AppTheme.colors.textMuted
                                     ),
                                     modifier = Modifier.size(36.dp)
                                 ) {
                                     Icon(
-                                        imageVector = Icons.Default.Remove,
-                                        contentDescription = "কমান",
+                                        Icons.Default.Remove,
+                                        contentDescription = "মাইনাস",
                                         modifier = Modifier.size(18.dp)
                                     )
                                 }
 
-                                // Quantity badge (clickable for direct input)
-                                Box(
+                                // Clickable Quantity Counter Badge (opens dialog for manual input)
+                                Surface(
+                                    color = if (qty > 0) AppTheme.colors.accentYellow else AppTheme.colors.elevatedBackground,
+                                    shape = RoundedCornerShape(8.dp),
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, AppTheme.colors.border),
                                     modifier = Modifier
                                         .defaultMinSize(minWidth = 38.dp, minHeight = 36.dp)
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .background(if (qty > 0) BiriYellow else Color(0xFF2A2A2A))
                                         .clickable {
                                             activeQtyEditProduct = product
                                             activeQtyText = if (qty > 0) qty.toString() else ""
                                         }
-                                        .padding(horizontal = 8.dp, vertical = 6.dp),
-                                    contentAlignment = Alignment.Center
                                 ) {
-                                    Text(
-                                        text = qty.toString(),
-                                        fontWeight = FontWeight.ExtraBold,
-                                        fontSize = 16.sp,
-                                        color = if (qty > 0) Color.Black else Color.Gray
-                                    )
+                                    Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)) {
+                                        Text(
+                                            text = DateUtils.toBengaliDigits(qty),
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 15.sp,
+                                            color = if (qty > 0) Color.Black else AppTheme.colors.textMuted
+                                        )
+                                    }
                                 }
 
                                 // Plus button
                                 IconButton(
                                     onClick = { provider.incrementCustomerQuantity(product.id) },
                                     colors = IconButtonDefaults.iconButtonColors(
-                                        containerColor = BiriYellow.copy(alpha = 0.2f),
-                                        contentColor = BiriYellow
+                                        containerColor = AppTheme.colors.accentYellow.copy(alpha = 0.2f),
+                                        contentColor = AppTheme.colors.accentYellow
                                     ),
                                     modifier = Modifier.size(36.dp)
                                 ) {
                                     Icon(
-                                        imageVector = Icons.Default.Add,
-                                        contentDescription = "বাড়ান",
+                                        Icons.Default.Add,
+                                        contentDescription = "প্লাস",
                                         modifier = Modifier.size(18.dp)
                                     )
                                 }
@@ -430,35 +498,29 @@ fun CustomerBillScreen(
                     }
                 }
 
-                // Section Title: Other / Miscellaneous Expenses
-                item {
-                    Column(modifier = Modifier.padding(top = 8.dp)) {
-                        Text(
-                            text = "অন্যান্য / বিবিধ খরচ",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = BiriYellow
-                        )
-                        Text(
-                            text = "প্রোডাক্ট ছাড়া অতিরিক্ত কোন পাওনা বা খরচ থাকলে যোগ করুন",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = Color.Gray
-                        )
-                    }
-                }
-
-                // Quick add expense input & chips
+                // Section: Other / Custom Expenses
                 item {
                     Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(containerColor = BiriBlackCard),
-                        shape = RoundedCornerShape(14.dp),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, BiriBorderDark)
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 8.dp),
+                        colors = CardDefaults.cardColors(containerColor = AppTheme.colors.cardBackground),
+                        shape = RoundedCornerShape(16.dp),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, AppTheme.colors.border)
                     ) {
                         Column(
-                            modifier = Modifier.padding(14.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
                             verticalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
+                            Text(
+                                text = "অন্যান্য / অতিরিক্ত খরচ যোগ করুন",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = AppTheme.colors.accentYellow
+                            )
+
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -467,86 +529,93 @@ fun CustomerBillScreen(
                                 OutlinedTextField(
                                     value = expenseAmount,
                                     onValueChange = { expenseAmount = it },
-                                    label = { Text("টাকার পরিমাণ (৳)") },
-                                    placeholder = { Text("যেমন: ২০") },
+                                    placeholder = { Text("খরচের টাকা (যেমন ৫০)", color = AppTheme.colors.textMuted) },
                                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                     singleLine = true,
+                                    shape = RoundedCornerShape(10.dp),
                                     colors = OutlinedTextFieldDefaults.colors(
-                                        focusedBorderColor = BiriYellow,
-                                        unfocusedBorderColor = BiriBorderDark,
-                                        focusedLabelColor = BiriYellow
+                                        focusedBorderColor = AppTheme.colors.accentYellow,
+                                        unfocusedBorderColor = AppTheme.colors.border,
+                                        focusedTextColor = AppTheme.colors.textPrimary,
+                                        unfocusedTextColor = AppTheme.colors.textPrimary
                                     ),
                                     modifier = Modifier.weight(1f)
                                 )
 
                                 Button(
                                     onClick = {
-                                        val amt = expenseAmount.toDoubleOrNull()
-                                        if (amt != null && amt > 0) {
+                                        val amt = expenseAmount.toDoubleOrNull() ?: 0.0
+                                        if (amt > 0) {
                                             provider.addCustomerExpense(amt)
                                             expenseAmount = ""
                                             keyboardController?.hide()
                                         }
                                     },
                                     colors = ButtonDefaults.buttonColors(
-                                        containerColor = BiriRed,
-                                        contentColor = Color.White
+                                        containerColor = AppTheme.colors.accentYellow,
+                                        contentColor = Color.Black
                                     ),
                                     shape = RoundedCornerShape(10.dp),
-                                    modifier = Modifier.height(54.dp)
+                                    modifier = Modifier.height(52.dp)
                                 ) {
-                                    Icon(Icons.Default.Add, contentDescription = null)
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text("যোগ", fontWeight = FontWeight.Bold)
+                                    Text("+ যোগ", fontWeight = FontWeight.Bold)
                                 }
                             }
 
-                            // Quick preset chips
+                            // Quick expense chips
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
-                                listOf(10.0, 20.0, 50.0, 100.0).forEach { preset ->
-                                    AssistChip(
-                                        onClick = {
-                                            provider.addCustomerExpense(preset)
-                                        },
-                                        label = { Text("+ ৳ ${preset.toInt()}") },
-                                        colors = AssistChipDefaults.assistChipColors(
-                                            containerColor = Color(0xFF222222),
-                                            labelColor = BiriYellow
-                                        ),
-                                        border = androidx.compose.foundation.BorderStroke(1.dp, BiriBorderDark)
-                                    )
+                                listOf(10.0, 20.0, 50.0, 100.0).forEach { quickVal ->
+                                    OutlinedButton(
+                                        onClick = { provider.addCustomerExpense(quickVal) },
+                                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                                        modifier = Modifier.weight(1f),
+                                        border = androidx.compose.foundation.BorderStroke(1.dp, AppTheme.colors.border),
+                                        colors = ButtonDefaults.outlinedButtonColors(
+                                            contentColor = AppTheme.colors.textPrimary
+                                        )
+                                    ) {
+                                        Text("+৳${quickVal.toInt()}", fontSize = 12.sp)
+                                    }
                                 }
                             }
 
-                            // List of current added expenses
+                            // Added custom expenses list
                             if (expenses.isNotEmpty()) {
-                                Divider(color = BiriBorderDark)
-                                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                    expenses.forEachIndexed { idx, exp ->
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.SpaceBetween,
-                                            verticalAlignment = Alignment.CenterVertically
+                                Divider(color = AppTheme.colors.border, modifier = Modifier.padding(vertical = 4.dp))
+                                Text(
+                                    text = "যুক্ত অতিরিক্ত খরচ সমূহ:",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = AppTheme.colors.textSecondary
+                                )
+
+                                expenses.forEachIndexed { index, exp ->
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .background(AppTheme.colors.elevatedBackground)
+                                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = "অতিরিক্ত খরচ #${index + 1}: ৳ ${DateUtils.toBengaliDigits(exp)}",
+                                            color = AppTheme.colors.textPrimary,
+                                            fontWeight = FontWeight.Medium
+                                        )
+                                        IconButton(
+                                            onClick = { provider.removeCustomerExpense(index) },
+                                            modifier = Modifier.size(28.dp)
                                         ) {
-                                            Text(
-                                                text = "অতিরিক্ত খরচ #${idx + 1}:  ৳ ${String.format("%.0f", exp)}",
-                                                color = Color.LightGray,
-                                                fontSize = 14.sp
+                                            Icon(
+                                                Icons.Default.Close,
+                                                contentDescription = "Remove",
+                                                tint = AppTheme.colors.accentRed,
+                                                modifier = Modifier.size(16.dp)
                                             )
-                                            IconButton(
-                                                onClick = { provider.removeCustomerExpense(idx) },
-                                                modifier = Modifier.size(30.dp)
-                                            ) {
-                                                Icon(
-                                                    imageVector = Icons.Default.Close,
-                                                    contentDescription = "মুছুন",
-                                                    tint = BiriRed,
-                                                    modifier = Modifier.size(18.dp)
-                                                )
-                                            }
                                         }
                                     }
                                 }
@@ -555,179 +624,104 @@ fun CustomerBillScreen(
                     }
                 }
             }
+        }
 
-            // Direct Quantity Editor Dialog
-            if (activeQtyEditProduct != null) {
-                val prod = activeQtyEditProduct!!
-                Dialog(onDismissRequest = { activeQtyEditProduct = null }) {
-                    Card(
-                        shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = BiriBlackCard),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, BiriYellow)
+        // Direct Quantity Input Dialog
+        if (activeQtyEditProduct != null) {
+            val prod = activeQtyEditProduct!!
+            Dialog(onDismissRequest = { activeQtyEditProduct = null }) {
+                Card(
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = AppTheme.colors.cardBackground),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, AppTheme.colors.accentYellow)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(20.dp),
+                        verticalArrangement = Arrangement.spacedBy(14.dp)
                     ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(20.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(14.dp)
+                        Text(
+                            text = "${prod.name} এর সংখ্যা লিখুন",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = AppTheme.colors.accentYellow
+                        )
+
+                        OutlinedTextField(
+                            value = activeQtyText,
+                            onValueChange = { activeQtyText = it },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            singleLine = true,
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = AppTheme.colors.accentYellow,
+                                unfocusedBorderColor = AppTheme.colors.border,
+                                focusedTextColor = AppTheme.colors.textPrimary,
+                                unfocusedTextColor = AppTheme.colors.textPrimary
+                            ),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
-                            Text(
-                                text = "${prod.name} এর পরিমাণ",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = BiriYellow
-                            )
-
-                            OutlinedTextField(
-                                value = activeQtyText,
-                                onValueChange = { activeQtyText = it },
-                                label = { Text("পিস / সংখ্যা") },
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                singleLine = true,
-                                textStyle = LocalTextStyle.current.copy(
-                                    textAlign = TextAlign.Center,
-                                    fontSize = 22.sp,
-                                    fontWeight = FontWeight.Bold
-                                ),
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    focusedBorderColor = BiriYellow,
-                                    unfocusedBorderColor = BiriBorderDark
-                                ),
-                                modifier = Modifier.fillMaxWidth()
-                            )
-
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            TextButton(
+                                onClick = { activeQtyEditProduct = null },
+                                modifier = Modifier.weight(1f)
                             ) {
-                                TextButton(
-                                    onClick = { activeQtyEditProduct = null },
-                                    modifier = Modifier.weight(1f)
-                                ) {
-                                    Text("বাতিল", color = Color.Gray)
-                                }
-                                Button(
-                                    onClick = {
-                                        val qty = activeQtyText.toIntOrNull() ?: 0
-                                        provider.setCustomerQuantity(prod.id, qty)
-                                        activeQtyEditProduct = null
-                                    },
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = BiriYellow,
-                                        contentColor = Color.Black
-                                    ),
-                                    modifier = Modifier.weight(1f)
-                                ) {
-                                    Text("ঠিক আছে", fontWeight = FontWeight.Bold)
-                                }
+                                Text("বাতিল", color = AppTheme.colors.textMuted)
+                            }
+
+                            Button(
+                                onClick = {
+                                    val parsed = activeQtyText.toIntOrNull() ?: 0
+                                    provider.setCustomerQuantity(prod.id, parsed)
+                                    activeQtyEditProduct = null
+                                },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = AppTheme.colors.accentYellow,
+                                    contentColor = Color.Black
+                                ),
+                                shape = RoundedCornerShape(10.dp),
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text("সেট করুন", fontWeight = FontWeight.Bold)
                             }
                         }
                     }
                 }
             }
+        }
 
-            // Clear Bill Confirmation Dialog
-            if (showClearDialog) {
-                AlertDialog(
-                    onDismissRequest = { showClearDialog = false },
-                    title = {
-                        Text(
-                            text = "বিল পরিশোধ নিশ্চিতকরণ",
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White
+        // Delete Customer Dialog
+        if (showDeleteCustomerDialog) {
+            AlertDialog(
+                onDismissRequest = { showDeleteCustomerDialog = false },
+                title = { Text("ক্রেতা মুছুন", color = AppTheme.colors.accentRed, fontWeight = FontWeight.Bold) },
+                text = { Text("আপনি কি নিশ্চিতভাবে ${customer.name} কে খাতা থেকে মুছে ফেলতে চান?", color = AppTheme.colors.textPrimary) },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            provider.deleteCustomer(customer)
+                            showDeleteCustomerDialog = false
+                            onBack()
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = AppTheme.colors.accentRed,
+                            contentColor = Color.White
                         )
-                    },
-                    text = {
-                        Text(
-                            text = "${customer.name} কি সম্পূর্ণ বিল পরিশোধ করেছেন? বিল ক্লিয়ার করতে চান?",
-                            color = Color.LightGray
-                        )
-                    },
-                    confirmButton = {
-                        Button(
-                            onClick = {
-                                provider.clearActiveCustomerBill()
-                                showClearDialog = false
-                            },
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = BiriRed,
-                                contentColor = Color.White
-                            )
-                        ) {
-                            Text("হ্যাঁ, ক্লিয়ার করুন", fontWeight = FontWeight.Bold)
-                        }
-                    },
-                    dismissButton = {
-                        TextButton(onClick = { showClearDialog = false }) {
-                            Text("না", color = Color.Gray)
-                        }
-                    },
-                    containerColor = BiriBlackCard
-                )
-            }
-
-            // Delete Customer Dialog
-            if (showDeleteCustomerDialog) {
-                AlertDialog(
-                    onDismissRequest = { showDeleteCustomerDialog = false },
-                    title = {
-                        Text(
-                            text = "ক্রেতা মুছে ফেলা",
-                            fontWeight = FontWeight.Bold,
-                            color = BiriRed
-                        )
-                    },
-                    text = {
-                        Text(
-                            text = "আপনি কি নিশ্চিতভাবে ${customer.name}-কে তালিকা থেকে মুছে ফেলতে চান?",
-                            color = Color.LightGray
-                        )
-                    },
-                    confirmButton = {
-                        Button(
-                            onClick = {
-                                provider.deleteCustomer(customer)
-                                showDeleteCustomerDialog = false
-                                onBack()
-                            },
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = BiriRed,
-                                contentColor = Color.White
-                            )
-                        ) {
-                            Text("মুছে ফেলুন", fontWeight = FontWeight.Bold)
-                        }
-                    },
-                    dismissButton = {
-                        TextButton(onClick = { showDeleteCustomerDialog = false }) {
-                            Text("বাতিল", color = Color.Gray)
-                        }
-                    },
-                    containerColor = BiriBlackCard
-                )
-            }
-
-            // Save Confirmation Snackbar
-            if (showSavedSnackbar) {
-                Snackbar(
-                    modifier = Modifier
-                        .align(Alignment.TopCenter)
-                        .padding(16.dp),
-                    action = {
-                        TextButton(onClick = { showSavedSnackbar = false }) {
-                            Text("ঠিক আছে", color = Color.Black, fontWeight = FontWeight.Bold)
-                        }
-                    },
-                    containerColor = BiriYellow,
-                    contentColor = Color.Black
-                ) {
-                    Text(
-                        text = "${customer.name} এর বিল সফলভাবে সেভ হয়েছে!",
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            }
+                    ) {
+                        Text("হ্যাঁ, মুছুন", fontWeight = FontWeight.Bold)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showDeleteCustomerDialog = false }) {
+                        Text("বাতিল", color = AppTheme.colors.textMuted)
+                    }
+                },
+                containerColor = AppTheme.colors.cardBackground
+            )
         }
     }
 }
