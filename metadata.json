@@ -1,0 +1,6 @@
+{
+  "name": "Smart Bill Calculator",
+  "description": "An extremely fast, clean, and modern real-time billing calculator optimized for shop and tea stall usage.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
