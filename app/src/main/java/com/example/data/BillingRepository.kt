@@ -17,20 +17,41 @@ class BillingRepository(
     suspend fun seedDefaultProductsIfEmpty() {
         val current = productDao.getAllProducts().first()
         if (current.isEmpty()) {
-            val defaults = listOf(
-                Product(name = "Carrom Bill", price = 20.0, iconType = "GAME", isDefault = true),
-                Product(name = "Benson", price = 20.0, iconType = "SMOKE", isDefault = true),
-                Product(name = "Lucky Strike Switch", price = 12.0, iconType = "SMOKE", isDefault = true),
-                Product(name = "Camel", price = 10.0, iconType = "SMOKE", isDefault = true),
-                Product(name = "Royal", price = 8.0, iconType = "SMOKE", isDefault = true),
-                Product(name = "Derby", price = 8.0, iconType = "SMOKE", isDefault = true),
-                Product(name = "Lal Tea", price = 5.0, iconType = "TEA", isDefault = true),
-                Product(name = "Black Coffee", price = 10.0, iconType = "COFFEE", isDefault = true),
-                Product(name = "Milk Coffee", price = 20.0, iconType = "COFFEE", isDefault = true)
-            )
+            val defaults = getDefaultBengaliProducts()
             productDao.insertProducts(defaults)
+        } else {
+            // Auto-migrate any existing English default names to Bengali
+            val englishToBengali = mapOf(
+                "Carrom Bill" to "ক্যারম বিল",
+                "Benson" to "বেনসন",
+                "Lucky Strike Switch" to "লাকি স্ট্রাইক সুইচ",
+                "Camel" to "ক্যামেল",
+                "Royal" to "রয়েল",
+                "Derby" to "ডার্বি",
+                "Lal Tea" to "লাল চা",
+                "Black Coffee" to "ব্ল্যাক কফি",
+                "Milk Coffee" to "দুধ কফি"
+            )
+            current.forEach { prod ->
+                val banglaName = englishToBengali[prod.name]
+                if (banglaName != null) {
+                    productDao.updateProduct(prod.copy(name = banglaName))
+                }
+            }
         }
     }
+
+    private fun getDefaultBengaliProducts(): List<Product> = listOf(
+        Product(name = "ক্যারম বিল", price = 20.0, iconType = "GAME", isDefault = true),
+        Product(name = "বেনসন", price = 20.0, iconType = "SMOKE", isDefault = true),
+        Product(name = "লাকি স্ট্রাইক সুইচ", price = 12.0, iconType = "SMOKE", isDefault = true),
+        Product(name = "ক্যামেল", price = 10.0, iconType = "SMOKE", isDefault = true),
+        Product(name = "রয়েল", price = 8.0, iconType = "SMOKE", isDefault = true),
+        Product(name = "ডার্বি", price = 8.0, iconType = "SMOKE", isDefault = true),
+        Product(name = "লাল চা", price = 5.0, iconType = "TEA", isDefault = true),
+        Product(name = "ব্ল্যাক কফি", price = 10.0, iconType = "COFFEE", isDefault = true),
+        Product(name = "দুধ কফি", price = 20.0, iconType = "COFFEE", isDefault = true)
+    )
 
     suspend fun addProduct(product: Product) = productDao.insertProduct(product)
     suspend fun updateProduct(product: Product) = productDao.updateProduct(product)
@@ -49,17 +70,7 @@ class BillingRepository(
     suspend fun resetAllData() {
         productDao.clearAllProducts()
         expenseDao.clearAllExpenses()
-        val defaults = listOf(
-            Product(name = "Carrom Bill", price = 20.0, iconType = "GAME", isDefault = true),
-            Product(name = "Benson", price = 20.0, iconType = "SMOKE", isDefault = true),
-            Product(name = "Lucky Strike Switch", price = 12.0, iconType = "SMOKE", isDefault = true),
-            Product(name = "Camel", price = 10.0, iconType = "SMOKE", isDefault = true),
-            Product(name = "Royal", price = 8.0, iconType = "SMOKE", isDefault = true),
-            Product(name = "Derby", price = 8.0, iconType = "SMOKE", isDefault = true),
-            Product(name = "Lal Tea", price = 5.0, iconType = "TEA", isDefault = true),
-            Product(name = "Black Coffee", price = 10.0, iconType = "COFFEE", isDefault = true),
-            Product(name = "Milk Coffee", price = 20.0, iconType = "COFFEE", isDefault = true)
-        )
+        val defaults = getDefaultBengaliProducts()
         productDao.insertProducts(defaults)
     }
 
