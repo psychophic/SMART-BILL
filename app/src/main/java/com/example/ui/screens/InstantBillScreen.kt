@@ -87,8 +87,9 @@ fun InstantBillScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 14.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
+                    // Title and Subtitle
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -102,23 +103,112 @@ fun InstantBillScreen(
                                 color = AppTheme.colors.accentYellow
                             )
                             Text(
-                                text = "হাতে হাতে বিক্রি ও ক্যাশ মেমো তৈরির জন্য",
+                                text = "হাতে হাতে বিক্রি ও ক্যাশ মেমো তৈরির হিসাব",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = AppTheme.colors.textSecondary
                             )
                         }
 
                         Surface(
-                            color = if (currentTotal > 0) AppTheme.colors.accentYellow else AppTheme.colors.elevatedBackground,
-                            shape = RoundedCornerShape(12.dp)
+                            color = if (currentTotal > 0) AppTheme.colors.accentYellow.copy(alpha = 0.2f) else AppTheme.colors.elevatedBackground,
+                            shape = RoundedCornerShape(8.dp),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, if (currentTotal > 0) AppTheme.colors.accentYellow else AppTheme.colors.border)
                         ) {
                             Text(
-                                text = "৳ ${DateUtils.toBengaliDigits(currentTotal)}",
-                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
-                                fontWeight = FontWeight.ExtraBold,
-                                fontSize = 18.sp,
-                                color = if (currentTotal > 0) Color.Black else AppTheme.colors.textMuted
+                                text = "${DateUtils.toBengaliDigits(totalItemCount)} টি আইটেম",
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp,
+                                color = if (currentTotal > 0) AppTheme.colors.accentYellow else AppTheme.colors.textMuted
                             )
+                        }
+                    }
+
+                    // PROMINENT LIVE TOTAL CALCULATION (বড় করে লাইভ হিসাব)
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = AppTheme.colors.elevatedBackground),
+                        shape = RoundedCornerShape(14.dp),
+                        border = androidx.compose.foundation.BorderStroke(
+                            2.dp,
+                            if (currentTotal > 0) AppTheme.colors.accentYellow else AppTheme.colors.border
+                        )
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 12.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column {
+                                Text(
+                                    text = "মোট হিসাব (লাইভ বিল)",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = AppTheme.colors.textMuted
+                                )
+                                Text(
+                                    text = "৳ ${DateUtils.toBengaliDigits(currentTotal)}",
+                                    style = MaterialTheme.typography.headlineMedium,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    fontSize = 28.sp,
+                                    color = if (currentTotal > 0) AppTheme.colors.accentYellow else AppTheme.colors.textPrimary
+                                )
+                            }
+
+                            // The 2 Primary Action Buttons: "মেমো" এবং "রিসেট"
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                // "রিসেট" বাটন
+                                OutlinedButton(
+                                    onClick = {
+                                        provider.resetAllBill()
+                                        Toast.makeText(context, "হিসাব রিসেট করা হয়েছে", Toast.LENGTH_SHORT).show()
+                                    },
+                                    colors = ButtonDefaults.outlinedButtonColors(
+                                        contentColor = AppTheme.colors.accentRed
+                                    ),
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, AppTheme.colors.accentRed),
+                                    shape = RoundedCornerShape(10.dp),
+                                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
+                                    modifier = Modifier.height(44.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Default.RestartAlt,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(18.dp),
+                                        tint = AppTheme.colors.accentRed
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("রিসেট", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                }
+
+                                // "মেমো" বাটন
+                                Button(
+                                    onClick = {
+                                        if (currentTotal > 0) {
+                                            onNavigateSummary()
+                                        } else {
+                                            Toast.makeText(context, "কোন পণ্য সিলেক্ট করা নেই", Toast.LENGTH_SHORT).show()
+                                        }
+                                    },
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = AppTheme.colors.accentYellow,
+                                        contentColor = Color.Black
+                                    ),
+                                    shape = RoundedCornerShape(10.dp),
+                                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                                    modifier = Modifier.height(44.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Default.ReceiptLong,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("মেমো", fontWeight = FontWeight.ExtraBold, fontSize = 14.sp)
+                                }
+                            }
                         }
                     }
 
@@ -164,14 +254,18 @@ fun InstantBillScreen(
                     val subtotal = qty * product.price
 
                     Card(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                provider.incrementQuantity(product.id)
+                            },
                         colors = CardDefaults.cardColors(
                             containerColor = if (qty > 0) AppTheme.colors.elevatedBackground else AppTheme.colors.cardBackground
                         ),
                         shape = RoundedCornerShape(14.dp),
                         border = androidx.compose.foundation.BorderStroke(
-                            1.dp,
-                            if (qty > 0) AppTheme.colors.accentYellow.copy(alpha = 0.8f) else AppTheme.colors.border
+                            if (qty > 0) 2.dp else 1.dp,
+                            if (qty > 0) AppTheme.colors.accentYellow else AppTheme.colors.border
                         )
                     ) {
                         Row(
@@ -189,7 +283,7 @@ fun InstantBillScreen(
                             ) {
                                 Box(
                                     modifier = Modifier
-                                        .size(42.dp)
+                                        .size(44.dp)
                                         .clip(RoundedCornerShape(10.dp))
                                         .background(if (qty > 0) AppTheme.colors.accentYellow.copy(alpha = 0.2f) else AppTheme.colors.elevatedBackground),
                                     contentAlignment = Alignment.Center
@@ -218,7 +312,7 @@ fun InstantBillScreen(
                                         Text(
                                             text = "সাবটোটাল: ৳ ${DateUtils.toBengaliDigits(subtotal)}",
                                             style = MaterialTheme.typography.labelSmall,
-                                            fontWeight = FontWeight.SemiBold,
+                                            fontWeight = FontWeight.Bold,
                                             color = AppTheme.colors.accentYellow
                                         )
                                     }
@@ -237,21 +331,21 @@ fun InstantBillScreen(
                                         containerColor = if (qty > 0) AppTheme.colors.accentRed.copy(alpha = 0.15f) else AppTheme.colors.elevatedBackground,
                                         contentColor = if (qty > 0) AppTheme.colors.accentRed else AppTheme.colors.textMuted
                                     ),
-                                    modifier = Modifier.size(36.dp)
+                                    modifier = Modifier.size(40.dp)
                                 ) {
                                     Icon(
                                         Icons.Default.Remove,
                                         contentDescription = "মাইনাস",
-                                        modifier = Modifier.size(18.dp)
+                                        modifier = Modifier.size(20.dp)
                                     )
                                 }
 
                                 Surface(
                                     color = if (qty > 0) AppTheme.colors.accentYellow else AppTheme.colors.elevatedBackground,
                                     shape = RoundedCornerShape(8.dp),
-                                    border = androidx.compose.foundation.BorderStroke(1.dp, AppTheme.colors.border),
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, if (qty > 0) AppTheme.colors.accentYellow else AppTheme.colors.border),
                                     modifier = Modifier
-                                        .defaultMinSize(minWidth = 38.dp, minHeight = 36.dp)
+                                        .defaultMinSize(minWidth = 42.dp, minHeight = 40.dp)
                                         .clickable {
                                             activeQtyEditProduct = product
                                             activeQtyText = if (qty > 0) qty.toString() else ""
@@ -260,8 +354,8 @@ fun InstantBillScreen(
                                     Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)) {
                                         Text(
                                             text = DateUtils.toBengaliDigits(qty),
-                                            fontWeight = FontWeight.Bold,
-                                            fontSize = 15.sp,
+                                            fontWeight = FontWeight.ExtraBold,
+                                            fontSize = 16.sp,
                                             color = if (qty > 0) Color.Black else AppTheme.colors.textMuted
                                         )
                                     }
@@ -270,15 +364,15 @@ fun InstantBillScreen(
                                 IconButton(
                                     onClick = { provider.incrementQuantity(product.id) },
                                     colors = IconButtonDefaults.iconButtonColors(
-                                        containerColor = AppTheme.colors.accentYellow.copy(alpha = 0.2f),
+                                        containerColor = AppTheme.colors.accentYellow.copy(alpha = 0.25f),
                                         contentColor = AppTheme.colors.accentYellow
                                     ),
-                                    modifier = Modifier.size(36.dp)
+                                    modifier = Modifier.size(40.dp)
                                 ) {
                                     Icon(
                                         Icons.Default.Add,
                                         contentDescription = "প্লাস",
-                                        modifier = Modifier.size(18.dp)
+                                        modifier = Modifier.size(20.dp)
                                     )
                                 }
                             }

@@ -177,12 +177,12 @@ fun CustomerBillScreen(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        // "বিল সেভ করুন" Button (Red - saves as due)
+                        // "সংরক্ষণ" Button (Red - saves as due to Khata)
                         Button(
                             onClick = {
                                 if (cartItemsTotal > 0 || customer.totalBill > 0) {
                                     provider.saveCustomerDueBill()
-                                    Toast.makeText(context, "${customer.name} এর মোট বিল সেভ করা হয়েছে (বাকী)", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, "${customer.name} এর মোট বিল বাকী হিসেবে সংরক্ষণ করা হয়েছে", Toast.LENGTH_SHORT).show()
                                     onBack()
                                 } else {
                                     Toast.makeText(context, "কোন পণ্য বা হিসাব সিলেক্ট করা নেই", Toast.LENGTH_SHORT).show()
@@ -204,7 +204,7 @@ fun CustomerBillScreen(
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
-                                text = "বিল সেভ করুন",
+                                text = "সংরক্ষণ",
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 15.sp
                             )
@@ -260,83 +260,142 @@ fun CustomerBillScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 contentPadding = PaddingValues(top = 10.dp, bottom = 24.dp)
             ) {
-                // Customer Status Banner
+                // PROMINENT LIVE TOTAL & "সংরক্ষণ" HEADER CARD AT THE TOP (বড় করে লাইভ হিসাব ও সংরক্ষণ বাটন)
                 item {
                     val hasDue = customer.totalBill > 0
                     Card(
                         modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(containerColor = AppTheme.colors.cardBackground),
-                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (cartItemsTotal > 0) AppTheme.colors.elevatedBackground else AppTheme.colors.cardBackground
+                        ),
+                        shape = RoundedCornerShape(18.dp),
                         border = androidx.compose.foundation.BorderStroke(
-                            1.dp,
-                            if (hasDue) AppTheme.colors.accentRed else AppTheme.colors.border
+                            2.dp,
+                            if (cartItemsTotal > 0 || hasDue) AppTheme.colors.accentRed else AppTheme.colors.accentYellow
                         )
                     ) {
-                        Row(
+                        Column(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(16.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
+                            // Top Row: Avatar + Name + Due Status
                             Row(
+                                modifier = Modifier.fillMaxWidth(),
                                 verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                horizontalArrangement = Arrangement.SpaceBetween
                             ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(46.dp)
-                                        .clip(CircleShape)
-                                        .background(if (hasDue) AppTheme.colors.accentRed else AppTheme.colors.accentGreen),
-                                    contentAlignment = Alignment.Center
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                                 ) {
-                                    Text(
-                                        text = customer.name.take(1),
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 20.sp,
-                                        color = Color.White
-                                    )
+                                    Box(
+                                        modifier = Modifier
+                                            .size(42.dp)
+                                            .clip(CircleShape)
+                                            .background(if (hasDue) AppTheme.colors.accentRed else AppTheme.colors.accentGreen),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = customer.name.take(1),
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 18.sp,
+                                            color = Color.White
+                                        )
+                                    }
+                                    Column {
+                                        Text(
+                                            text = customer.name,
+                                            fontWeight = FontWeight.ExtraBold,
+                                            fontSize = 18.sp,
+                                            color = AppTheme.colors.accentYellow
+                                        )
+                                        Text(
+                                            text = if (hasDue) "পূর্বের বকেয়া: ৳ ${DateUtils.toBengaliDigits(customer.totalBill)}" else "কোন পূর্বের বকেয়া নেই",
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.Medium,
+                                            color = if (hasDue) AppTheme.colors.accentRed else AppTheme.colors.accentGreen
+                                        )
+                                    }
                                 }
-                                Column {
-                                    Text(
-                                        text = "${customer.name} এর হিসাব",
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 17.sp,
-                                        color = AppTheme.colors.textPrimary
-                                    )
-                                    Text(
-                                        text = if (hasDue) "বকেয়া: ৳ ${DateUtils.toBengaliDigits(customer.totalBill)}" else "হিসাব সম্পূর্ণ পরিশোধিত",
-                                        fontSize = 13.sp,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = if (hasDue) AppTheme.colors.accentRed else AppTheme.colors.accentGreen
-                                    )
+
+                                if (hasDue) {
+                                    Surface(
+                                        color = AppTheme.colors.accentRed.copy(alpha = 0.15f),
+                                        shape = RoundedCornerShape(8.dp)
+                                    ) {
+                                        Text(
+                                            text = "বাকী আছে",
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = AppTheme.colors.accentRed
+                                        )
+                                    }
                                 }
                             }
 
-                            if (hasDue) {
-                                Surface(
-                                    color = AppTheme.colors.accentRed.copy(alpha = 0.15f),
-                                    shape = RoundedCornerShape(8.dp)
-                                ) {
+                            HorizontalDivider(color = AppTheme.colors.border)
+
+                            // Main Live Calculation & "সংরক্ষণ" Row (উপরে বড় করে লাইভ হিসাব ও সংরক্ষণ বাটন)
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
                                     Text(
-                                        text = "বাকী আছে",
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                        fontSize = 11.sp,
+                                        text = if (cartItemsTotal > 0) "টোটাল হিসাব (লাইভ বিল)" else "টোটাল হিসাব",
+                                        style = MaterialTheme.typography.labelMedium,
                                         fontWeight = FontWeight.Bold,
-                                        color = AppTheme.colors.accentRed
+                                        color = AppTheme.colors.textMuted
                                     )
-                                }
-                            } else {
-                                Surface(
-                                    color = AppTheme.colors.accentGreen.copy(alpha = 0.15f),
-                                    shape = RoundedCornerShape(8.dp)
-                                ) {
                                     Text(
-                                        text = "পরিশোধ",
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = AppTheme.colors.accentGreen
+                                        text = "৳ ${DateUtils.toBengaliDigits(if (cartItemsTotal > 0) cartItemsTotal else customer.totalBill)}",
+                                        style = MaterialTheme.typography.headlineMedium,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        fontSize = 30.sp,
+                                        color = if (cartItemsTotal > 0 || hasDue) AppTheme.colors.accentRed else AppTheme.colors.accentYellow
+                                    )
+                                    if (cartItemsTotal > 0 && hasDue) {
+                                        Text(
+                                            text = "বকেয়াসহ মোট: ৳ ${DateUtils.toBengaliDigits(totalWithPreviousDue)}",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            fontWeight = FontWeight.Bold,
+                                            color = AppTheme.colors.accentYellow
+                                        )
+                                    }
+                                }
+
+                                // "সংরক্ষণ" Button (Saves as due to Khata / Dashboard immediately)
+                                Button(
+                                    onClick = {
+                                        if (cartItemsTotal > 0 || customer.totalBill > 0) {
+                                            provider.saveCustomerDueBill()
+                                            Toast.makeText(context, "${customer.name} এর মোট বিল বাকী হিসেবে সংরক্ষণ করা হয়েছে", Toast.LENGTH_SHORT).show()
+                                            onBack()
+                                        } else {
+                                            Toast.makeText(context, "কোন পণ্য সিলেক্ট করা নেই", Toast.LENGTH_SHORT).show()
+                                        }
+                                    },
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = AppTheme.colors.accentRed,
+                                        contentColor = Color.White
+                                    ),
+                                    shape = RoundedCornerShape(12.dp),
+                                    modifier = Modifier.height(48.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Save,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = "সংরক্ষণ",
+                                        fontWeight = FontWeight.ExtraBold,
+                                        fontSize = 15.sp
                                     )
                                 }
                             }
@@ -360,7 +419,7 @@ fun CustomerBillScreen(
                             color = AppTheme.colors.accentYellow
                         )
                         Text(
-                            text = "+ / - দিয়ে কোয়ান্টিটি যোগ করুন",
+                            text = "ট্যাপ করে বা + / - দিয়ে কোয়ান্টিটি যোগ করুন",
                             style = MaterialTheme.typography.labelSmall,
                             color = AppTheme.colors.textMuted
                         )
@@ -373,14 +432,18 @@ fun CustomerBillScreen(
                     val subtotal = qty * product.price
 
                     Card(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                provider.incrementCustomerQuantity(product.id)
+                            },
                         colors = CardDefaults.cardColors(
                             containerColor = if (qty > 0) AppTheme.colors.elevatedBackground else AppTheme.colors.cardBackground
                         ),
                         shape = RoundedCornerShape(14.dp),
                         border = androidx.compose.foundation.BorderStroke(
-                            1.dp,
-                            if (qty > 0) AppTheme.colors.accentYellow.copy(alpha = 0.8f) else AppTheme.colors.border
+                            if (qty > 0) 2.dp else 1.dp,
+                            if (qty > 0) AppTheme.colors.accentYellow else AppTheme.colors.border
                         )
                     ) {
                         Row(
@@ -398,7 +461,7 @@ fun CustomerBillScreen(
                             ) {
                                 Box(
                                     modifier = Modifier
-                                        .size(42.dp)
+                                        .size(44.dp)
                                         .clip(RoundedCornerShape(10.dp))
                                         .background(if (qty > 0) AppTheme.colors.accentYellow.copy(alpha = 0.2f) else AppTheme.colors.elevatedBackground),
                                     contentAlignment = Alignment.Center
@@ -427,7 +490,7 @@ fun CustomerBillScreen(
                                         Text(
                                             text = "সাবটোটাল: ৳ ${DateUtils.toBengaliDigits(subtotal)}",
                                             style = MaterialTheme.typography.labelSmall,
-                                            fontWeight = FontWeight.SemiBold,
+                                            fontWeight = FontWeight.Bold,
                                             color = AppTheme.colors.accentYellow
                                         )
                                     }
@@ -447,12 +510,12 @@ fun CustomerBillScreen(
                                         containerColor = if (qty > 0) AppTheme.colors.accentRed.copy(alpha = 0.15f) else AppTheme.colors.elevatedBackground,
                                         contentColor = if (qty > 0) AppTheme.colors.accentRed else AppTheme.colors.textMuted
                                     ),
-                                    modifier = Modifier.size(36.dp)
+                                    modifier = Modifier.size(40.dp)
                                 ) {
                                     Icon(
                                         Icons.Default.Remove,
                                         contentDescription = "মাইনাস",
-                                        modifier = Modifier.size(18.dp)
+                                        modifier = Modifier.size(20.dp)
                                     )
                                 }
 
@@ -460,9 +523,9 @@ fun CustomerBillScreen(
                                 Surface(
                                     color = if (qty > 0) AppTheme.colors.accentYellow else AppTheme.colors.elevatedBackground,
                                     shape = RoundedCornerShape(8.dp),
-                                    border = androidx.compose.foundation.BorderStroke(1.dp, AppTheme.colors.border),
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, if (qty > 0) AppTheme.colors.accentYellow else AppTheme.colors.border),
                                     modifier = Modifier
-                                        .defaultMinSize(minWidth = 38.dp, minHeight = 36.dp)
+                                        .defaultMinSize(minWidth = 42.dp, minHeight = 40.dp)
                                         .clickable {
                                             activeQtyEditProduct = product
                                             activeQtyText = if (qty > 0) qty.toString() else ""
@@ -471,8 +534,8 @@ fun CustomerBillScreen(
                                     Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)) {
                                         Text(
                                             text = DateUtils.toBengaliDigits(qty),
-                                            fontWeight = FontWeight.Bold,
-                                            fontSize = 15.sp,
+                                            fontWeight = FontWeight.ExtraBold,
+                                            fontSize = 16.sp,
                                             color = if (qty > 0) Color.Black else AppTheme.colors.textMuted
                                         )
                                     }
@@ -482,15 +545,15 @@ fun CustomerBillScreen(
                                 IconButton(
                                     onClick = { provider.incrementCustomerQuantity(product.id) },
                                     colors = IconButtonDefaults.iconButtonColors(
-                                        containerColor = AppTheme.colors.accentYellow.copy(alpha = 0.2f),
+                                        containerColor = AppTheme.colors.accentYellow.copy(alpha = 0.25f),
                                         contentColor = AppTheme.colors.accentYellow
                                     ),
-                                    modifier = Modifier.size(36.dp)
+                                    modifier = Modifier.size(40.dp)
                                 ) {
                                     Icon(
                                         Icons.Default.Add,
                                         contentDescription = "প্লাস",
-                                        modifier = Modifier.size(18.dp)
+                                        modifier = Modifier.size(20.dp)
                                     )
                                 }
                             }

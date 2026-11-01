@@ -546,11 +546,13 @@ fun HomeScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            // Left side: Avatar + Customer Name
+                            // Left side: Avatar + Customer Name (clickable to open bill)
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(12.dp),
-                                modifier = Modifier.weight(1f)
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clickable { provider.openCustomerBilling(customer) }
                             ) {
                                 Box(
                                     modifier = Modifier
