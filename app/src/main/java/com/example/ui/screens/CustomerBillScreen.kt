@@ -177,12 +177,12 @@ fun CustomerBillScreen(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        // "বাকী" Button (Red)
+                        // "বিল সেভ করুন" Button (Red - saves as due)
                         Button(
                             onClick = {
                                 if (cartItemsTotal > 0 || customer.totalBill > 0) {
                                     provider.saveCustomerDueBill()
-                                    Toast.makeText(context, "${customer.name} এর খাতায় বাকী যোগ করা হয়েছে", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, "${customer.name} এর মোট বিল সেভ করা হয়েছে (বাকী)", Toast.LENGTH_SHORT).show()
                                     onBack()
                                 } else {
                                     Toast.makeText(context, "কোন পণ্য বা হিসাব সিলেক্ট করা নেই", Toast.LENGTH_SHORT).show()
@@ -194,19 +194,19 @@ fun CustomerBillScreen(
                             ),
                             shape = RoundedCornerShape(12.dp),
                             modifier = Modifier
-                                .weight(1f)
+                                .weight(1.2f)
                                 .height(50.dp)
                         ) {
                             Icon(
-                                imageVector = Icons.Default.BookmarkAdd,
+                                imageVector = Icons.Default.Save,
                                 contentDescription = null,
                                 modifier = Modifier.size(20.dp)
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
-                                text = "বাকী (খাতায় যোগ)",
+                                text = "বিল সেভ করুন",
                                 fontWeight = FontWeight.Bold,
-                                fontSize = 14.sp
+                                fontSize = 15.sp
                             )
                         }
 

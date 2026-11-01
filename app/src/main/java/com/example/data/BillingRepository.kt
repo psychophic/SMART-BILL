@@ -163,8 +163,16 @@ class BillingRepository(
         return billRecordDao.insertRecord(record)
     }
 
+    suspend fun updateBillRecord(record: BillRecord) {
+        billRecordDao.updateRecord(record)
+    }
+
     suspend fun deleteBillRecord(record: BillRecord) {
         billRecordDao.deleteRecord(record)
+    }
+
+    suspend fun clearAllBillRecords() {
+        billRecordDao.clearAllRecords()
     }
 
     fun getRecordsForCustomer(customerId: Long): Flow<List<BillRecord>> {
@@ -182,6 +190,14 @@ class BillingRepository(
         appSettingDao.insertSetting(AppSetting(key, value))
     }
 
+    // Reset only billing transactions and customer dues, keeping customer names and products
+    suspend fun resetAllBillingTransactions() {
+        billRecordDao.clearAllRecords()
+        customerDao.resetAllCustomerDues()
+        expenseDao.clearAllExpenses()
+    }
+
+    // Full factory reset
     suspend fun resetAllData() {
         productDao.clearAllProducts()
         expenseDao.clearAllExpenses()

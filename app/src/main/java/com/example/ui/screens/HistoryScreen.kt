@@ -2,6 +2,7 @@ package com.example.ui.screens
 
 import android.widget.Toast
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -9,7 +10,9 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -19,8 +22,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import com.example.models.BillRecord
 import com.example.providers.BillingProvider
 import com.example.ui.theme.*
@@ -37,9 +42,19 @@ fun HistoryScreen(
 
     var activeTab by remember { mutableStateOf("ALL") } // "ALL" or "MONTHLY"
     var searchQuery by remember { mutableStateOf("") }
+    var sourceFilter by remember { mutableStateOf("ALL") } // "ALL", "KHATA", "INSTANT"
     var statusFilter by remember { mutableStateOf("ALL") } // "ALL", "DUE", "PAID"
     var selectedMonthKey by remember { mutableStateOf<String?>(null) }
+
+    // Dialog states
     var recordToDelete by remember { mutableStateOf<BillRecord?>(null) }
+    var recordToEdit by remember { mutableStateOf<BillRecord?>(null) }
+    var showResetDialog by remember { mutableStateOf(false) }
+    var showConfirmResetTransactionsDialog by remember { mutableStateOf(false) }
+    var showConfirmFactoryResetDialog by remember { mutableStateOf(false) }
+
+    // Expandable customer in monthly tab
+    var expandedCustomerName by remember { mutableStateOf<String?>(null) }
 
     // Derive all available months from records or default to current month
     val availableMonths = remember(billRecords) {
@@ -51,7 +66,6 @@ fun HistoryScreen(
         }
     }
 
-    // Set default selected month if null
     LaunchedEffect(availableMonths) {
         if (selectedMonthKey == null && availableMonths.isNotEmpty()) {
             selectedMonthKey = availableMonths.first()
@@ -59,18 +73,29 @@ fun HistoryScreen(
     }
 
     // Filtered records for "ALL" tab
-    val filteredRecords = remember(billRecords, searchQuery, statusFilter) {
+    val filteredRecords = remember(billRecords, searchQuery, sourceFilter, statusFilter) {
         billRecords.filter { record ->
             val matchesSearch = record.customerName.contains(searchQuery.trim(), ignoreCase = true) ||
                     record.itemsSummary.contains(searchQuery.trim(), ignoreCase = true)
+            val isInstant = record.customerId == 0L || record.customerName.contains("কাউন্টার")
+            val matchesSource = when (sourceFilter) {
+                "KHATA" -> !isInstant
+                "INSTANT" -> isInstant
+                else -> true
+            }
             val matchesStatus = when (statusFilter) {
                 "DUE" -> record.status == "DUE"
                 "PAID" -> record.status == "PAID"
                 else -> true
             }
-            matchesSearch && matchesStatus
+            matchesSearch && matchesSource && matchesStatus
         }
     }
+
+    // Overall Totals across all records (তাৎক্ষণিক + খাতা উভয় জায়গার টোটাল বিল)
+    val overallTotalBill = remember(billRecords) { billRecords.sumOf { it.totalAmount } }
+    val overallTotalDue = remember(billRecords) { billRecords.filter { it.status == "DUE" }.sumOf { it.totalAmount } }
+    val overallTotalPaid = remember(billRecords) { billRecords.filter { it.status == "PAID" }.sumOf { it.totalAmount } }
 
     // Records for selected month
     val monthlyRecords = remember(billRecords, selectedMonthKey) {
@@ -84,8 +109,16 @@ fun HistoryScreen(
             val totalBill = records.sumOf { it.totalAmount }
             val dueTotal = records.filter { it.status == "DUE" }.sumOf { it.totalAmount }
             val paidTotal = records.filter { it.status == "PAID" }.sumOf { it.totalAmount }
-            Triple(custName, records, Triple(totalBill, dueTotal, paidTotal))
-        }.sortedByDescending { it.third.first }
+            val isInstant = records.any { it.customerId == 0L }
+            object {
+                val name = custName
+                val billList = records
+                val total = totalBill
+                val due = dueTotal
+                val paid = paidTotal
+                val instant = isInstant
+            }
+        }.sortedByDescending { it.total }
     }
 
     // Monthly aggregates
@@ -100,7 +133,7 @@ fun HistoryScreen(
             .padding(paddingValues)
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
-            // Header
+            // Header with Reset button
             Surface(
                 color = AppTheme.colors.cardBackground,
                 modifier = Modifier.fillMaxWidth(),
@@ -112,12 +145,51 @@ fun HistoryScreen(
                         .padding(horizontal = 16.dp, vertical = 12.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    Text(
-                        text = "পুরনো হিসাব ও রিপোর্ট",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = AppTheme.colors.accentYellow
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text(
+                                text = "হিসাব ও বিস্তারিত রিপোর্ট",
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = AppTheme.colors.accentYellow
+                            )
+                            Text(
+                                text = "তাৎক্ষণিক ও খাতার সকল মাসিক ও মোট বিল",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = AppTheme.colors.textSecondary
+                            )
+                        }
+
+                        // "রিসেট" Action Button
+                        OutlinedButton(
+                            onClick = { showResetDialog = true },
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = AppTheme.colors.accentRed
+                            ),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, AppTheme.colors.accentRed),
+                            shape = RoundedCornerShape(10.dp),
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                            modifier = Modifier.height(36.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.RestartAlt,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp),
+                                tint = AppTheme.colors.accentRed
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "রিসেট",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp,
+                                color = AppTheme.colors.accentRed
+                            )
+                        }
+                    }
 
                     // Tab Selector: "সকল লেনদেন" vs "মাসিক রিপোর্ট"
                     Row(
@@ -159,11 +231,54 @@ fun HistoryScreen(
             if (activeTab == "ALL") {
                 // "সকল লেনদেন" View
                 Column(modifier = Modifier.fillMaxSize()) {
-                    // Filters row
+                    // Summary Totals Row (তাৎক্ষণিক + খাতা উভয় জায়গার টোটাল বিল)
+                    Surface(
+                        color = AppTheme.colors.cardBackground,
+                        modifier = Modifier.fillMaxWidth(),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, AppTheme.colors.border)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 10.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column {
+                                Text("সর্বমোট বিল", fontSize = 11.sp, color = AppTheme.colors.textMuted)
+                                Text(
+                                    text = "৳ ${DateUtils.toBengaliDigits(overallTotalBill)}",
+                                    fontWeight = FontWeight.ExtraBold,
+                                    fontSize = 17.sp,
+                                    color = AppTheme.colors.accentYellow
+                                )
+                            }
+                            Column {
+                                Text("মোট বকেয়া (বাকী)", fontSize = 11.sp, color = AppTheme.colors.textMuted)
+                                Text(
+                                    text = "৳ ${DateUtils.toBengaliDigits(overallTotalDue)}",
+                                    fontWeight = FontWeight.ExtraBold,
+                                    fontSize = 17.sp,
+                                    color = AppTheme.colors.accentRed
+                                )
+                            }
+                            Column(horizontalAlignment = Alignment.End) {
+                                Text("মোট আদায় (নগদ)", fontSize = 11.sp, color = AppTheme.colors.textMuted)
+                                Text(
+                                    text = "৳ ${DateUtils.toBengaliDigits(overallTotalPaid)}",
+                                    fontWeight = FontWeight.ExtraBold,
+                                    fontSize = 17.sp,
+                                    color = AppTheme.colors.accentGreen
+                                )
+                            }
+                        }
+                    }
+
+                    // Search and Filter row
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 10.dp),
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         OutlinedTextField(
@@ -191,43 +306,76 @@ fun HistoryScreen(
                             modifier = Modifier.fillMaxWidth()
                         )
 
-                        Row(
+                        // Filters: Source and Status
+                        LazyRow(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            FilterChip(
-                                selected = statusFilter == "ALL",
-                                onClick = { statusFilter = "ALL" },
-                                label = { Text("সব হিসাব") },
-                                colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = AppTheme.colors.accentYellow,
-                                    selectedLabelColor = Color.Black,
-                                    containerColor = AppTheme.colors.cardBackground,
-                                    labelColor = AppTheme.colors.textPrimary
+                            item {
+                                FilterChip(
+                                    selected = sourceFilter == "ALL",
+                                    onClick = { sourceFilter = "ALL" },
+                                    label = { Text("সব উৎস") },
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = AppTheme.colors.accentYellow,
+                                        selectedLabelColor = Color.Black,
+                                        containerColor = AppTheme.colors.cardBackground,
+                                        labelColor = AppTheme.colors.textPrimary
+                                    )
                                 )
-                            )
-                            FilterChip(
-                                selected = statusFilter == "DUE",
-                                onClick = { statusFilter = "DUE" },
-                                label = { Text("বাকী") },
-                                colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = AppTheme.colors.accentRed,
-                                    selectedLabelColor = Color.White,
-                                    containerColor = AppTheme.colors.cardBackground,
-                                    labelColor = AppTheme.colors.textPrimary
+                            }
+                            item {
+                                FilterChip(
+                                    selected = sourceFilter == "KHATA",
+                                    onClick = { sourceFilter = "KHATA" },
+                                    label = { Text("খাতা") },
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = AppTheme.colors.accentYellow,
+                                        selectedLabelColor = Color.Black,
+                                        containerColor = AppTheme.colors.cardBackground,
+                                        labelColor = AppTheme.colors.textPrimary
+                                    )
                                 )
-                            )
-                            FilterChip(
-                                selected = statusFilter == "PAID",
-                                onClick = { statusFilter = "PAID" },
-                                label = { Text("পরিশোধ") },
-                                colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = AppTheme.colors.accentGreen,
-                                    selectedLabelColor = Color.White,
-                                    containerColor = AppTheme.colors.cardBackground,
-                                    labelColor = AppTheme.colors.textPrimary
+                            }
+                            item {
+                                FilterChip(
+                                    selected = sourceFilter == "INSTANT",
+                                    onClick = { sourceFilter = "INSTANT" },
+                                    label = { Text("তাৎক্ষণিক") },
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = AppTheme.colors.accentYellow,
+                                        selectedLabelColor = Color.Black,
+                                        containerColor = AppTheme.colors.cardBackground,
+                                        labelColor = AppTheme.colors.textPrimary
+                                    )
                                 )
-                            )
+                            }
+                            item {
+                                FilterChip(
+                                    selected = statusFilter == "DUE",
+                                    onClick = { statusFilter = if (statusFilter == "DUE") "ALL" else "DUE" },
+                                    label = { Text("বাকী") },
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = AppTheme.colors.accentRed,
+                                        selectedLabelColor = Color.White,
+                                        containerColor = AppTheme.colors.cardBackground,
+                                        labelColor = AppTheme.colors.textPrimary
+                                    )
+                                )
+                            }
+                            item {
+                                FilterChip(
+                                    selected = statusFilter == "PAID",
+                                    onClick = { statusFilter = if (statusFilter == "PAID") "ALL" else "PAID" },
+                                    label = { Text("পরিশোধ") },
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = AppTheme.colors.accentGreen,
+                                        selectedLabelColor = Color.White,
+                                        containerColor = AppTheme.colors.cardBackground,
+                                        labelColor = AppTheme.colors.textPrimary
+                                    )
+                                )
+                            }
                         }
                     }
 
@@ -243,12 +391,12 @@ fun HistoryScreen(
                                 Icon(Icons.Default.HistoryEdu, contentDescription = null, tint = AppTheme.colors.textMuted, modifier = Modifier.size(56.dp))
                                 Spacer(modifier = Modifier.height(10.dp))
                                 Text(
-                                    text = "কোন পুরনো হিসাবের তথ্য পাওয়া যায়নি",
+                                    text = "কোন হিসাব বা লেনদেনের তথ্য পাওয়া যায়নি",
                                     color = AppTheme.colors.textSecondary,
                                     fontWeight = FontWeight.Bold
                                 )
                                 Text(
-                                    text = "ক্রেতার বিলে 'বাকী' বা 'পরিশোধ' চাপলে এখানে রেকর্ড জমা হবে",
+                                    text = "তাৎক্ষণিক বা ক্রেতার বিল সেভ করলে এখানে তালিকা তৈরি হবে",
                                     color = AppTheme.colors.textMuted,
                                     fontSize = 12.sp,
                                     modifier = Modifier.padding(top = 4.dp)
@@ -265,6 +413,8 @@ fun HistoryScreen(
                         ) {
                             items(filteredRecords, key = { it.id }) { record ->
                                 val isDue = record.status == "DUE"
+                                val isInstant = record.customerId == 0L || record.customerName.contains("কাউন্টার")
+
                                 Card(
                                     modifier = Modifier.fillMaxWidth(),
                                     colors = CardDefaults.cardColors(containerColor = AppTheme.colors.cardBackground),
@@ -291,7 +441,7 @@ fun HistoryScreen(
                                             ) {
                                                 Box(
                                                     modifier = Modifier
-                                                        .size(38.dp)
+                                                        .size(40.dp)
                                                         .clip(CircleShape)
                                                         .background(if (isDue) AppTheme.colors.accentRed else AppTheme.colors.accentGreen),
                                                     contentAlignment = Alignment.Center
@@ -304,12 +454,29 @@ fun HistoryScreen(
                                                 }
 
                                                 Column {
-                                                    Text(
-                                                        text = record.customerName,
-                                                        fontWeight = FontWeight.Bold,
-                                                        fontSize = 16.sp,
-                                                        color = AppTheme.colors.textPrimary
-                                                    )
+                                                    Row(
+                                                        verticalAlignment = Alignment.CenterVertically,
+                                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                                    ) {
+                                                        Text(
+                                                            text = record.customerName,
+                                                            fontWeight = FontWeight.Bold,
+                                                            fontSize = 16.sp,
+                                                            color = AppTheme.colors.textPrimary
+                                                        )
+                                                        Surface(
+                                                            color = if (isInstant) AppTheme.colors.accentYellow.copy(alpha = 0.15f) else Color(0xFF2196F3).copy(alpha = 0.15f),
+                                                            shape = RoundedCornerShape(6.dp)
+                                                        ) {
+                                                            Text(
+                                                                text = if (isInstant) "তাৎক্ষণিক" else "খাতা",
+                                                                fontSize = 10.sp,
+                                                                fontWeight = FontWeight.Bold,
+                                                                color = if (isInstant) AppTheme.colors.accentYellow else Color(0xFF42A5F5),
+                                                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                                            )
+                                                        }
+                                                    }
                                                     Text(
                                                         text = "${record.formattedDate} • ${record.formattedTime}",
                                                         fontSize = 11.sp,
@@ -318,7 +485,10 @@ fun HistoryScreen(
                                                 }
                                             }
 
-                                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                            ) {
                                                 Surface(
                                                     color = if (isDue) AppTheme.colors.accentRed.copy(alpha = 0.15f) else AppTheme.colors.accentGreen.copy(alpha = 0.15f),
                                                     shape = RoundedCornerShape(8.dp)
@@ -338,18 +508,6 @@ fun HistoryScreen(
                                                     fontSize = 16.sp,
                                                     color = if (isDue) AppTheme.colors.accentRed else AppTheme.colors.accentGreen
                                                 )
-
-                                                IconButton(
-                                                    onClick = { recordToDelete = record },
-                                                    modifier = Modifier.size(24.dp)
-                                                ) {
-                                                    Icon(
-                                                        Icons.Default.DeleteOutline,
-                                                        contentDescription = "Delete record",
-                                                        tint = AppTheme.colors.textMuted,
-                                                        modifier = Modifier.size(16.dp)
-                                                    )
-                                                }
                                             }
                                         }
 
@@ -360,6 +518,56 @@ fun HistoryScreen(
                                                 style = MaterialTheme.typography.bodySmall,
                                                 color = AppTheme.colors.textSecondary
                                             )
+                                        }
+
+                                        // Action buttons row: এডিট (Edit) & ডিলিট (Delete)
+                                        Divider(color = AppTheme.colors.border)
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.End,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            // "এডিট" Button
+                                            TextButton(
+                                                onClick = { recordToEdit = record },
+                                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                                            ) {
+                                                Icon(
+                                                    Icons.Default.Edit,
+                                                    contentDescription = "এডিট",
+                                                    tint = AppTheme.colors.accentYellow,
+                                                    modifier = Modifier.size(16.dp)
+                                                )
+                                                Spacer(modifier = Modifier.width(4.dp))
+                                                Text(
+                                                    text = "এডিট",
+                                                    fontSize = 12.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = AppTheme.colors.accentYellow
+                                                )
+                                            }
+
+                                            Spacer(modifier = Modifier.width(8.dp))
+
+                                            // "ডিলিট" Button
+                                            TextButton(
+                                                onClick = { recordToDelete = record },
+                                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                                            ) {
+                                                Icon(
+                                                    Icons.Default.DeleteOutline,
+                                                    contentDescription = "ডিলিট",
+                                                    tint = AppTheme.colors.accentRed,
+                                                    modifier = Modifier.size(16.dp)
+                                                )
+                                                Spacer(modifier = Modifier.width(4.dp))
+                                                Text(
+                                                    text = "ডিলিট",
+                                                    fontSize = 12.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = AppTheme.colors.accentRed
+                                                )
+                                            }
                                         }
                                     }
                                 }
@@ -404,7 +612,7 @@ fun HistoryScreen(
                         }
                     }
 
-                    // Monthly Aggregate Overview Card
+                    // Monthly Aggregate Overview Card (তাৎক্ষণিক ও খাতা উভয় জায়গার মাসিক বিল)
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         colors = CardDefaults.cardColors(containerColor = AppTheme.colors.cardBackground),
@@ -418,7 +626,7 @@ fun HistoryScreen(
                             verticalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
                             Text(
-                                text = "${selectedMonthKey?.let { DateUtils.getMonthDisplayName(it) }} এর সারসংক্ষেপ",
+                                text = "${selectedMonthKey?.let { DateUtils.getMonthDisplayName(it) }} এর মোট হিসাব",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = AppTheme.colors.accentYellow
@@ -429,7 +637,7 @@ fun HistoryScreen(
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
                                 Column {
-                                    Text("মোট লেনদেন বিল", style = MaterialTheme.typography.labelSmall, color = AppTheme.colors.textMuted)
+                                    Text("মাসের মোট বিল", style = MaterialTheme.typography.labelSmall, color = AppTheme.colors.textMuted)
                                     Text(
                                         text = "৳ ${DateUtils.toBengaliDigits(monthTotalBill)}",
                                         fontWeight = FontWeight.ExtraBold,
@@ -438,7 +646,7 @@ fun HistoryScreen(
                                     )
                                 }
                                 Column {
-                                    Text("মোট বাকী", style = MaterialTheme.typography.labelSmall, color = AppTheme.colors.textMuted)
+                                    Text("মাসের বাকী", style = MaterialTheme.typography.labelSmall, color = AppTheme.colors.textMuted)
                                     Text(
                                         text = "৳ ${DateUtils.toBengaliDigits(monthTotalDue)}",
                                         fontWeight = FontWeight.ExtraBold,
@@ -447,7 +655,7 @@ fun HistoryScreen(
                                     )
                                 }
                                 Column(horizontalAlignment = Alignment.End) {
-                                    Text("মোট আদায়", style = MaterialTheme.typography.labelSmall, color = AppTheme.colors.textMuted)
+                                    Text("মাসের পরিশোধ", style = MaterialTheme.typography.labelSmall, color = AppTheme.colors.textMuted)
                                     Text(
                                         text = "৳ ${DateUtils.toBengaliDigits(monthTotalPaid)}",
                                         fontWeight = FontWeight.ExtraBold,
@@ -461,7 +669,7 @@ fun HistoryScreen(
 
                     // Customer Monthly Totals List
                     Text(
-                        text = "ক্রেতাভিত্তিক এই মাসের মোট বিল (${DateUtils.toBengaliDigits(monthlyCustomerData.size)} জন)",
+                        text = "ইনডিভিজুয়াল ক্রেতার মাসিক বিল (${DateUtils.toBengaliDigits(monthlyCustomerData.size)} জন)",
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold,
                         color = AppTheme.colors.accentYellow
@@ -475,7 +683,7 @@ fun HistoryScreen(
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
-                                text = "এই মাসে কোন ক্রেতার হিসাব নেই",
+                                text = "এই মাসে কোন ক্রেতা বা কাউন্টারের হিসাব নেই",
                                 color = AppTheme.colors.textMuted
                             )
                         }
@@ -485,11 +693,15 @@ fun HistoryScreen(
                             verticalArrangement = Arrangement.spacedBy(10.dp),
                             contentPadding = PaddingValues(bottom = 30.dp)
                         ) {
-                            items(monthlyCustomerData, key = { it.first }) { (custName, records, totals) ->
-                                val (totalAmt, dueAmt, paidAmt) = totals
+                            items(monthlyCustomerData, key = { it.name }) { custItem ->
+                                val isExpanded = expandedCustomerName == custItem.name
 
                                 Card(
-                                    modifier = Modifier.fillMaxWidth(),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable {
+                                            expandedCustomerName = if (isExpanded) null else custItem.name
+                                        },
                                     colors = CardDefaults.cardColors(containerColor = AppTheme.colors.cardBackground),
                                     shape = RoundedCornerShape(14.dp),
                                     border = androidx.compose.foundation.BorderStroke(1.dp, AppTheme.colors.border)
@@ -498,7 +710,7 @@ fun HistoryScreen(
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .padding(14.dp),
-                                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                                        verticalArrangement = Arrangement.spacedBy(8.dp)
                                     ) {
                                         Row(
                                             modifier = Modifier.fillMaxWidth(),
@@ -511,27 +723,43 @@ fun HistoryScreen(
                                             ) {
                                                 Box(
                                                     modifier = Modifier
-                                                        .size(36.dp)
+                                                        .size(38.dp)
                                                         .clip(CircleShape)
                                                         .background(AppTheme.colors.accentYellow.copy(alpha = 0.2f)),
                                                     contentAlignment = Alignment.Center
                                                 ) {
                                                     Text(
-                                                        text = custName.take(1),
+                                                        text = custItem.name.take(1),
                                                         fontWeight = FontWeight.Bold,
                                                         color = AppTheme.colors.accentYellow
                                                     )
                                                 }
 
                                                 Column {
+                                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                                        Text(
+                                                            text = custItem.name,
+                                                            fontWeight = FontWeight.Bold,
+                                                            fontSize = 16.sp,
+                                                            color = AppTheme.colors.textPrimary
+                                                        )
+                                                        if (custItem.instant) {
+                                                            Surface(
+                                                                color = AppTheme.colors.accentYellow.copy(alpha = 0.15f),
+                                                                shape = RoundedCornerShape(6.dp)
+                                                            ) {
+                                                                Text(
+                                                                    text = "কাউন্টার",
+                                                                    fontSize = 10.sp,
+                                                                    fontWeight = FontWeight.Bold,
+                                                                    color = AppTheme.colors.accentYellow,
+                                                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                                                )
+                                                            }
+                                                        }
+                                                    }
                                                     Text(
-                                                        text = custName,
-                                                        fontWeight = FontWeight.Bold,
-                                                        fontSize = 16.sp,
-                                                        color = AppTheme.colors.textPrimary
-                                                    )
-                                                    Text(
-                                                        text = "মোট লেনদেন: ${DateUtils.toBengaliDigits(records.size)} টি",
+                                                        text = "মোট মেমো: ${DateUtils.toBengaliDigits(custItem.billList.size)} টি • বিস্তারিত দেখতে ক্লিক করুন",
                                                         fontSize = 11.sp,
                                                         color = AppTheme.colors.textMuted
                                                     )
@@ -545,7 +773,7 @@ fun HistoryScreen(
                                                     color = AppTheme.colors.textMuted
                                                 )
                                                 Text(
-                                                    text = "৳ ${DateUtils.toBengaliDigits(totalAmt)}",
+                                                    text = "৳ ${DateUtils.toBengaliDigits(custItem.total)}",
                                                     fontWeight = FontWeight.ExtraBold,
                                                     fontSize = 17.sp,
                                                     color = AppTheme.colors.textPrimary
@@ -560,17 +788,89 @@ fun HistoryScreen(
                                             horizontalArrangement = Arrangement.SpaceBetween
                                         ) {
                                             Text(
-                                                text = "বাকী: ৳ ${DateUtils.toBengaliDigits(dueAmt)}",
+                                                text = "বাকী: ৳ ${DateUtils.toBengaliDigits(custItem.due)}",
                                                 fontSize = 12.sp,
                                                 fontWeight = FontWeight.SemiBold,
                                                 color = AppTheme.colors.accentRed
                                             )
                                             Text(
-                                                text = "পরিশোধ: ৳ ${DateUtils.toBengaliDigits(paidAmt)}",
+                                                text = "পরিশোধ: ৳ ${DateUtils.toBengaliDigits(custItem.paid)}",
                                                 fontSize = 12.sp,
                                                 fontWeight = FontWeight.SemiBold,
                                                 color = AppTheme.colors.accentGreen
                                             )
+                                        }
+
+                                        // Expanded individual bills with Edit and Delete options
+                                        if (isExpanded) {
+                                            Spacer(modifier = Modifier.height(4.dp))
+                                            Divider(color = AppTheme.colors.accentYellow.copy(alpha = 0.5f))
+                                            Text(
+                                                text = "${custItem.name} এর এই মাসের লেনদেন সমূহ:",
+                                                fontSize = 12.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = AppTheme.colors.accentYellow,
+                                                modifier = Modifier.padding(top = 4.dp)
+                                            )
+
+                                            custItem.billList.forEach { rec ->
+                                                Surface(
+                                                    color = AppTheme.colors.elevatedBackground,
+                                                    shape = RoundedCornerShape(8.dp),
+                                                    modifier = Modifier.fillMaxWidth()
+                                                ) {
+                                                    Row(
+                                                        modifier = Modifier
+                                                            .fillMaxWidth()
+                                                            .padding(10.dp),
+                                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                                        verticalAlignment = Alignment.CenterVertically
+                                                    ) {
+                                                        Column(modifier = Modifier.weight(1f)) {
+                                                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                                                                Text(
+                                                                    text = "৳ ${DateUtils.toBengaliDigits(rec.totalAmount)}",
+                                                                    fontWeight = FontWeight.Bold,
+                                                                    fontSize = 14.sp,
+                                                                    color = if (rec.status == "DUE") AppTheme.colors.accentRed else AppTheme.colors.accentGreen
+                                                                )
+                                                                Text(
+                                                                    text = "(${if (rec.status == "DUE") "বাকী" else "পরিশোধ"})",
+                                                                    fontSize = 11.sp,
+                                                                    color = if (rec.status == "DUE") AppTheme.colors.accentRed else AppTheme.colors.accentGreen
+                                                                )
+                                                            }
+                                                            Text(
+                                                                text = "${rec.formattedDate} • ${rec.formattedTime}",
+                                                                fontSize = 10.sp,
+                                                                color = AppTheme.colors.textMuted
+                                                            )
+                                                            if (rec.itemsSummary.isNotBlank()) {
+                                                                Text(
+                                                                    text = rec.itemsSummary,
+                                                                    fontSize = 11.sp,
+                                                                    color = AppTheme.colors.textSecondary
+                                                                )
+                                                            }
+                                                        }
+
+                                                        Row {
+                                                            IconButton(
+                                                                onClick = { recordToEdit = rec },
+                                                                modifier = Modifier.size(30.dp)
+                                                            ) {
+                                                                Icon(Icons.Default.Edit, contentDescription = "Edit", tint = AppTheme.colors.accentYellow, modifier = Modifier.size(16.dp))
+                                                            }
+                                                            IconButton(
+                                                                onClick = { recordToDelete = rec },
+                                                                modifier = Modifier.size(30.dp)
+                                                            ) {
+                                                                Icon(Icons.Default.DeleteOutline, contentDescription = "Delete", tint = AppTheme.colors.accentRed, modifier = Modifier.size(16.dp))
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
                                         }
                                     }
                                 }
@@ -581,7 +881,148 @@ fun HistoryScreen(
             }
         }
 
-        // Delete Record Confirmation Dialog
+        // ================= DIALOGS =================
+
+        // 1. Edit Record Dialog (এডিট অপশন)
+        if (recordToEdit != null) {
+            val rec = recordToEdit!!
+            var editName by remember { mutableStateOf(rec.customerName) }
+            var editAmountText by remember { mutableStateOf(rec.totalAmount.toString()) }
+            var editStatus by remember { mutableStateOf(rec.status) }
+            var editSummary by remember { mutableStateOf(rec.itemsSummary) }
+
+            Dialog(onDismissRequest = { recordToEdit = null }) {
+                Card(
+                    shape = RoundedCornerShape(18.dp),
+                    colors = CardDefaults.cardColors(containerColor = AppTheme.colors.cardBackground),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, AppTheme.colors.accentYellow)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(20.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Text(
+                            text = "বিল রেকর্ড এডিট করুন",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = AppTheme.colors.accentYellow
+                        )
+
+                        OutlinedTextField(
+                            value = editName,
+                            onValueChange = { editName = it },
+                            label = { Text("ক্রেতা / কাউন্টারের নাম") },
+                            singleLine = true,
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = AppTheme.colors.accentYellow,
+                                unfocusedBorderColor = AppTheme.colors.border,
+                                focusedTextColor = AppTheme.colors.textPrimary,
+                                unfocusedTextColor = AppTheme.colors.textPrimary
+                            ),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+
+                        OutlinedTextField(
+                            value = editAmountText,
+                            onValueChange = { editAmountText = it },
+                            label = { Text("বিলের টাকার পরিমাণ") },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            singleLine = true,
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = AppTheme.colors.accentYellow,
+                                unfocusedBorderColor = AppTheme.colors.border,
+                                focusedTextColor = AppTheme.colors.textPrimary,
+                                unfocusedTextColor = AppTheme.colors.textPrimary
+                            ),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+
+                        // Status radio buttons
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            FilterChip(
+                                selected = editStatus == "DUE",
+                                onClick = { editStatus = "DUE" },
+                                label = { Text("বাকী") },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = AppTheme.colors.accentRed,
+                                    selectedLabelColor = Color.White,
+                                    containerColor = AppTheme.colors.cardBackground,
+                                    labelColor = AppTheme.colors.textPrimary
+                                ),
+                                modifier = Modifier.weight(1f)
+                            )
+                            FilterChip(
+                                selected = editStatus == "PAID",
+                                onClick = { editStatus = "PAID" },
+                                label = { Text("পরিশোধ") },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = AppTheme.colors.accentGreen,
+                                    selectedLabelColor = Color.White,
+                                    containerColor = AppTheme.colors.cardBackground,
+                                    labelColor = AppTheme.colors.textPrimary
+                                ),
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+
+                        OutlinedTextField(
+                            value = editSummary,
+                            onValueChange = { editSummary = it },
+                            label = { Text("পণ্যের বিবরণ / নোট") },
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = AppTheme.colors.accentYellow,
+                                unfocusedBorderColor = AppTheme.colors.border,
+                                focusedTextColor = AppTheme.colors.textPrimary,
+                                unfocusedTextColor = AppTheme.colors.textPrimary
+                            ),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            TextButton(
+                                onClick = { recordToEdit = null },
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text("বাতিল", color = AppTheme.colors.textMuted)
+                            }
+
+                            Button(
+                                onClick = {
+                                    val parsedAmt = editAmountText.toDoubleOrNull() ?: rec.totalAmount
+                                    val updated = rec.copy(
+                                        customerName = editName.trim(),
+                                        totalAmount = parsedAmt,
+                                        status = editStatus,
+                                        itemsSummary = editSummary.trim()
+                                    )
+                                    provider.updateBillRecord(updated)
+                                    recordToEdit = null
+                                    Toast.makeText(context, "বিল রেকর্ড আপডেট করা হয়েছে", Toast.LENGTH_SHORT).show()
+                                },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = AppTheme.colors.accentYellow,
+                                    contentColor = Color.Black
+                                ),
+                                shape = RoundedCornerShape(10.dp),
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text("সেভ করুন", fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // 2. Delete Record Confirmation Dialog (ডিলিট অপশন)
         if (recordToDelete != null) {
             val rec = recordToDelete!!
             AlertDialog(
@@ -602,6 +1043,121 @@ fun HistoryScreen(
                 },
                 dismissButton = {
                     TextButton(onClick = { recordToDelete = null }) {
+                        Text("বাতিল", color = AppTheme.colors.textMuted)
+                    }
+                },
+                containerColor = AppTheme.colors.cardBackground
+            )
+        }
+
+        // 3. Reset Options Dialog (সবকিছু রিসেট করার অপশন)
+        if (showResetDialog) {
+            AlertDialog(
+                onDismissRequest = { showResetDialog = false },
+                title = {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Icon(Icons.Default.Warning, contentDescription = null, tint = AppTheme.colors.accentRed)
+                        Text("হিসাব ও ডাটা রিসেট", color = AppTheme.colors.accentRed, fontWeight = FontWeight.Bold)
+                    }
+                },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text(
+                            text = "আপনি কোন ধরনের রিসেট করতে চান?",
+                            color = AppTheme.colors.textPrimary,
+                            fontWeight = FontWeight.SemiBold
+                        )
+
+                        // Option 1: Transactions & Dues Reset Only
+                        Button(
+                            onClick = {
+                                showResetDialog = false
+                                showConfirmResetTransactionsDialog = true
+                            },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = AppTheme.colors.accentYellow,
+                                contentColor = Color.Black
+                            ),
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("১। শুধুমাত্র লেনদেন ও বকেয়া রিসেট", fontWeight = FontWeight.Bold)
+                        }
+
+                        // Option 2: Factory Reset Everything
+                        Button(
+                            onClick = {
+                                showResetDialog = false
+                                showConfirmFactoryResetDialog = true
+                            },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = AppTheme.colors.accentRed,
+                                contentColor = Color.White
+                            ),
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("২। সবকিছু ফ্যাক্টরি রিসেট (সকল ডাটা)", fontWeight = FontWeight.Bold)
+                        }
+                    }
+                },
+                confirmButton = {},
+                dismissButton = {
+                    TextButton(onClick = { showResetDialog = false }) {
+                        Text("বাতিল", color = AppTheme.colors.textMuted)
+                    }
+                },
+                containerColor = AppTheme.colors.cardBackground
+            )
+        }
+
+        // Confirm Reset Transactions Dialog
+        if (showConfirmResetTransactionsDialog) {
+            AlertDialog(
+                onDismissRequest = { showConfirmResetTransactionsDialog = false },
+                title = { Text("লেনদেন ও বকেয়া রিসেট", color = AppTheme.colors.accentRed, fontWeight = FontWeight.Bold) },
+                text = { Text("সকল পুরনো বিল, মেমো ও খাতার বকেয়া শূন্য করা হবে। ক্রেতা ও পণ্যের তালিকা অক্ষুণ্ণ থাকবে। আপনি কি নিশ্চিত?", color = AppTheme.colors.textPrimary) },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            provider.resetTransactionsOnly()
+                            showConfirmResetTransactionsDialog = false
+                            Toast.makeText(context, "সকল লেনদেন ও বকেয়া সফলভাবে রিসেট করা হয়েছে", Toast.LENGTH_LONG).show()
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = AppTheme.colors.accentRed, contentColor = Color.White)
+                    ) {
+                        Text("হ্যাঁ, রিসেট করুন", fontWeight = FontWeight.Bold)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showConfirmResetTransactionsDialog = false }) {
+                        Text("বাতিল", color = AppTheme.colors.textMuted)
+                    }
+                },
+                containerColor = AppTheme.colors.cardBackground
+            )
+        }
+
+        // Confirm Factory Reset Dialog
+        if (showConfirmFactoryResetDialog) {
+            AlertDialog(
+                onDismissRequest = { showConfirmFactoryResetDialog = false },
+                title = { Text("ফ্যাক্টরি রিসেট", color = AppTheme.colors.accentRed, fontWeight = FontWeight.Bold) },
+                text = { Text("অ্যাপের সকল ডাটা মুছে প্রাথমিক ডিফল্ট অবস্থায় ফিরিয়ে নেওয়া হবে। আপনি কি নিশ্চিত?", color = AppTheme.colors.textPrimary) },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            provider.resetToDefaults()
+                            showConfirmFactoryResetDialog = false
+                            Toast.makeText(context, "অ্যাপ প্রাথমিক অবস্থায় রিসেট করা হয়েছে", Toast.LENGTH_LONG).show()
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = AppTheme.colors.accentRed, contentColor = Color.White)
+                    ) {
+                        Text("হ্যাঁ, ফ্যাক্টরি রিসেট করুন", fontWeight = FontWeight.Bold)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showConfirmFactoryResetDialog = false }) {
                         Text("বাতিল", color = AppTheme.colors.textMuted)
                     }
                 },

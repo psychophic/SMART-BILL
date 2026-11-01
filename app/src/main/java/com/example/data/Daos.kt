@@ -69,6 +69,9 @@ interface CustomerDao {
     @Query("SELECT COUNT(*) FROM customers")
     suspend fun getCustomerCount(): Int
 
+    @Query("UPDATE customers SET totalBill = 0.0, billItemsJson = '{}', expensesJson = '[]'")
+    suspend fun resetAllCustomerDues()
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertCustomer(customer: Customer): Long
 
@@ -98,6 +101,9 @@ interface BillRecordDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertRecord(record: com.example.models.BillRecord): Long
+
+    @Update
+    suspend fun updateRecord(record: com.example.models.BillRecord)
 
     @Delete
     suspend fun deleteRecord(record: com.example.models.BillRecord)

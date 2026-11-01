@@ -463,7 +463,8 @@ fun InstantBillScreen(
                                         provider.recordInstantCounterSale(
                                             amount = currentTotal,
                                             summary = fullSummary,
-                                            isDue = false
+                                            isDue = false,
+                                            customerName = "তাৎক্ষণিক কাউন্টার"
                                         )
                                         Toast.makeText(context, "বিক্রি সম্পন্ন ও ইতিহাসে সেভ হয়েছে", Toast.LENGTH_SHORT).show()
                                     } else {

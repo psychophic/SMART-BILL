@@ -22,6 +22,8 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalContext
+import android.widget.Toast
 import androidx.compose.ui.window.Dialog
 import com.example.R
 import com.example.providers.BillingProvider
@@ -47,6 +49,7 @@ fun HomeScreen(
         return
     }
 
+    val context = LocalContext.current
     val customers by provider.customers.collectAsState()
     val products by provider.products.collectAsState()
 
@@ -256,6 +259,138 @@ fun HomeScreen(
                 }
             }
 
+            // HIGHLIGHTED SECTION: Due Customers (যে সকল ক্রেতার বিল বাকী সেগুলো ড্যাশবোর্ডে আলাদা করে হাইলাইট)
+            if (dueCustomersCount > 0) {
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (AppTheme.colors.isDark) Color(0xFF261212) else Color(0xFFFFECEC)
+                        ),
+                        shape = RoundedCornerShape(18.dp),
+                        border = androidx.compose.foundation.BorderStroke(2.dp, AppTheme.colors.accentRed)
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(14.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Surface(
+                                        color = AppTheme.colors.accentRed,
+                                        shape = RoundedCornerShape(6.dp)
+                                    ) {
+                                        Text(
+                                            text = "বকেয়া বিল",
+                                            color = Color.White,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 11.sp,
+                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                        )
+                                    }
+                                    Text(
+                                        text = "বকেয়া ক্রেতাদের তালিকা (বাকী আছে)",
+                                        fontWeight = FontWeight.ExtraBold,
+                                        fontSize = 15.sp,
+                                        color = AppTheme.colors.accentRed
+                                    )
+                                }
+                                Text(
+                                    text = "${DateUtils.toBengaliDigits(dueCustomersCount)} জন",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 13.sp,
+                                    color = AppTheme.colors.accentRed
+                                )
+                            }
+
+                            val dueList = customers.filter { it.totalBill > 0 }.sortedByDescending { it.totalBill }
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                dueList.forEach { dueCust ->
+                                    Surface(
+                                        color = AppTheme.colors.cardBackground,
+                                        shape = RoundedCornerShape(12.dp),
+                                        border = androidx.compose.foundation.BorderStroke(1.dp, AppTheme.colors.accentRed.copy(alpha = 0.5f)),
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .clickable { provider.openCustomerBilling(dueCust) }
+                                                .padding(horizontal = 12.dp, vertical = 10.dp),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                                modifier = Modifier.weight(1f)
+                                            ) {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .size(36.dp)
+                                                        .clip(CircleShape)
+                                                        .background(AppTheme.colors.accentRed),
+                                                    contentAlignment = Alignment.Center
+                                                ) {
+                                                    Text(
+                                                        text = dueCust.name.take(1),
+                                                        fontWeight = FontWeight.Bold,
+                                                        fontSize = 16.sp,
+                                                        color = Color.White
+                                                    )
+                                                }
+                                                Column {
+                                                    Text(
+                                                        text = dueCust.name,
+                                                        fontWeight = FontWeight.Bold,
+                                                        fontSize = 15.sp,
+                                                        color = AppTheme.colors.textPrimary
+                                                    )
+                                                    Text(
+                                                        text = "টোটাল বিল: ৳ ${DateUtils.toBengaliDigits(dueCust.totalBill)} (বাকী)",
+                                                        fontSize = 12.sp,
+                                                        fontWeight = FontWeight.ExtraBold,
+                                                        color = AppTheme.colors.accentRed
+                                                    )
+                                                }
+                                            }
+
+                                            // Direct "পরিশোধ" Button right on the highlighted due item
+                                            Button(
+                                                onClick = {
+                                                    provider.settleCustomerDirectly(dueCust)
+                                                    Toast.makeText(context, "${dueCust.name} এর বিল সম্পূর্ণ পরিশোধ করা হয়েছে", Toast.LENGTH_SHORT).show()
+                                                },
+                                                colors = ButtonDefaults.buttonColors(
+                                                    containerColor = AppTheme.colors.accentGreen,
+                                                    contentColor = Color.White
+                                                ),
+                                                shape = RoundedCornerShape(8.dp),
+                                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                                                modifier = Modifier.height(36.dp)
+                                            ) {
+                                                Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp))
+                                                Spacer(modifier = Modifier.width(4.dp))
+                                                Text("পরিশোধ", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             // Section Header: Customer Ledger Cards
             item {
                 Row(
@@ -432,7 +567,7 @@ fun HomeScreen(
                                     )
                                 }
 
-                                Column {
+                                Column(modifier = Modifier.weight(1f)) {
                                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                         Text(
                                             text = customer.name,
@@ -446,8 +581,8 @@ fun HomeScreen(
                                                 shape = RoundedCornerShape(6.dp)
                                             ) {
                                                 Text(
-                                                    text = "বকেয়া",
-                                                    fontSize = 10.sp,
+                                                    text = "বাকী",
+                                                    fontSize = 11.sp,
                                                     fontWeight = FontWeight.Bold,
                                                     color = AppTheme.colors.accentRed,
                                                     modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
@@ -455,36 +590,52 @@ fun HomeScreen(
                                             }
                                         }
                                     }
+                                    // Total bill next to/under customer name shown in RED if due, else GREEN
                                     Text(
-                                        text = if (hasDue) "বকেয়া বিল আছে" else "হিসাব পরিশোধিত",
-                                        style = MaterialTheme.typography.labelSmall,
+                                        text = if (hasDue) {
+                                            "টোটাল বিল: ৳ ${DateUtils.toBengaliDigits(customer.totalBill)} (বাকী)"
+                                        } else {
+                                            "হিসাব: ৳ ০ (পরিশোধিত)"
+                                        },
+                                        style = MaterialTheme.typography.bodySmall,
+                                        fontWeight = FontWeight.Bold,
                                         color = if (hasDue) AppTheme.colors.accentRed else AppTheme.colors.accentGreen
                                     )
                                 }
                             }
 
-                            // Right side: Due / Paid Status Badge
+                            // Right side: Red Due badge + "পরিশোধ" Button (or Paid badge)
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
                                 if (hasDue) {
-                                    Surface(
-                                        color = AppTheme.colors.accentRed,
-                                        shape = RoundedCornerShape(10.dp)
+                                    // Direct "পরিশোধ" Button beside customer's name
+                                    Button(
+                                        onClick = {
+                                            provider.settleCustomerDirectly(customer)
+                                            Toast.makeText(context, "${customer.name} এর বিল সম্পূর্ণ পরিশোধ করা হয়েছে", Toast.LENGTH_SHORT).show()
+                                        },
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = AppTheme.colors.accentGreen,
+                                            contentColor = Color.White
+                                        ),
+                                        shape = RoundedCornerShape(8.dp),
+                                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                                        modifier = Modifier.height(36.dp)
                                     ) {
-                                        Text(
-                                            text = "৳ ${DateUtils.toBengaliDigits(customer.totalBill)}",
-                                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                                            fontWeight = FontWeight.ExtraBold,
-                                            fontSize = 16.sp,
-                                            color = Color.White
+                                        Icon(
+                                            Icons.Default.Check,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(16.dp)
                                         )
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text("পরিশোধ", fontWeight = FontWeight.Bold, fontSize = 12.sp)
                                     }
                                 } else {
                                     Surface(
                                         color = AppTheme.colors.accentGreen.copy(alpha = 0.15f),
-                                        shape = RoundedCornerShape(10.dp),
+                                        shape = RoundedCornerShape(8.dp),
                                         border = androidx.compose.foundation.BorderStroke(1.dp, AppTheme.colors.accentGreen)
                                     ) {
                                         Row(
@@ -499,9 +650,9 @@ fun HomeScreen(
                                                 modifier = Modifier.size(14.dp)
                                             )
                                             Text(
-                                                text = "পরিশোধ",
+                                                text = "পরিশোধিত",
                                                 fontWeight = FontWeight.Bold,
-                                                fontSize = 14.sp,
+                                                fontSize = 13.sp,
                                                 color = AppTheme.colors.accentGreen
                                             )
                                         }

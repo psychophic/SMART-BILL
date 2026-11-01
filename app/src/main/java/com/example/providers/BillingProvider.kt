@@ -199,12 +199,7 @@ class BillingProvider(application: Application) : AndroidViewModel(application) 
 
             _customerQuantities.value = emptyMap()
             _customerExpenses.value = emptyList()
-            _activeCustomer.value = customer.copy(
-                billItemsJson = "{}",
-                expensesJson = "[]",
-                totalBill = finalDue,
-                lastUpdated = timestamp
-            )
+            _activeCustomer.value = null
         }
     }
 
@@ -260,12 +255,39 @@ class BillingProvider(application: Application) : AndroidViewModel(application) 
             repository.clearCustomerBill(customer.id)
             _customerQuantities.value = emptyMap()
             _customerExpenses.value = emptyList()
-            _activeCustomer.value = customer.copy(
-                billItemsJson = "{}",
-                expensesJson = "[]",
-                totalBill = 0.0,
-                lastUpdated = timestamp
+            _activeCustomer.value = null
+        }
+    }
+
+    // Direct one-click settlement from Dashboard
+    fun settleCustomerDirectly(customer: Customer) {
+        if (customer.totalBill <= 0) return
+        viewModelScope.launch {
+            val timestamp = System.currentTimeMillis()
+            val record = BillRecord(
+                customerId = customer.id,
+                customerName = customer.name,
+                totalAmount = customer.totalBill,
+                status = "PAID",
+                itemsSummary = "বকেয়া বিল সম্পূর্ণ পরিশোধ",
+                timestamp = timestamp,
+                formattedDate = DateUtils.formatDate(timestamp),
+                formattedTime = DateUtils.formatTime(timestamp),
+                monthKey = DateUtils.getMonthKey(timestamp)
             )
+            repository.recordBill(record)
+            repository.clearCustomerBill(customer.id)
+            if (_activeCustomer.value?.id == customer.id) {
+                _customerQuantities.value = emptyMap()
+                _customerExpenses.value = emptyList()
+                _activeCustomer.value = null
+            }
+        }
+    }
+
+    fun updateBillRecord(record: BillRecord) {
+        viewModelScope.launch {
+            repository.updateBillRecord(record)
         }
     }
 
@@ -464,6 +486,16 @@ class BillingProvider(application: Application) : AndroidViewModel(application) 
     }
 
     // Data Reset
+    fun resetTransactionsOnly() {
+        viewModelScope.launch {
+            repository.resetAllBillingTransactions()
+            _quantities.value = emptyMap()
+            _activeCustomer.value = null
+            _customerQuantities.value = emptyMap()
+            _customerExpenses.value = emptyList()
+        }
+    }
+
     fun resetToDefaults() {
         viewModelScope.launch {
             repository.resetAllData()
