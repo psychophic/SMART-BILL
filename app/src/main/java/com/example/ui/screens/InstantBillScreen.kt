@@ -90,100 +90,99 @@ fun InstantBillScreen(
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     // Title and Subtitle
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column {
-                            Text(
-                                text = "তাৎক্ষণিক কাউন্টার বিল",
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.ExtraBold,
-                                color = AppTheme.colors.accentYellow
-                            )
-                            Text(
-                                text = "হাতে হাতে বিক্রি ও ক্যাশ মেমো তৈরির হিসাব",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = AppTheme.colors.textSecondary
-                            )
-                        }
-
-                        Surface(
-                            color = if (currentTotal > 0) AppTheme.colors.accentYellow.copy(alpha = 0.2f) else AppTheme.colors.elevatedBackground,
-                            shape = RoundedCornerShape(8.dp),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, if (currentTotal > 0) AppTheme.colors.accentYellow else AppTheme.colors.border)
-                        ) {
-                            Text(
-                                text = "${DateUtils.toBengaliDigits(totalItemCount)} টি আইটেম",
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 12.sp,
-                                color = if (currentTotal > 0) AppTheme.colors.accentYellow else AppTheme.colors.textMuted
-                            )
-                        }
+                    Column {
+                        Text(
+                            text = "তাৎক্ষণিক কাউন্টার বিল",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = AppTheme.colors.accentYellow
+                        )
+                        Text(
+                            text = "হাতে হাতে বিক্রি ও ক্যাশ মেমো তৈরির হিসাব",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = AppTheme.colors.textSecondary
+                        )
                     }
 
-                    // PROMINENT LIVE TOTAL CALCULATION (বড় করে লাইভ হিসাব)
+                    // PROMINENT LIVE TOTAL CALCULATION CARD (বড় করে লাইভ হিসাব ও বাটন)
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         colors = CardDefaults.cardColors(containerColor = AppTheme.colors.elevatedBackground),
                         shape = RoundedCornerShape(14.dp),
                         border = androidx.compose.foundation.BorderStroke(
-                            2.dp,
+                            1.5.dp,
                             if (currentTotal > 0) AppTheme.colors.accentYellow else AppTheme.colors.border
                         )
                     ) {
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 12.dp),
+                                .padding(horizontal = 14.dp, vertical = 10.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Column {
+                            Column(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .padding(end = 8.dp)
+                            ) {
                                 Text(
-                                    text = "মোট হিসাব (লাইভ বিল)",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = AppTheme.colors.textMuted
+                                    text = "মোট পণ্য: ${DateUtils.toBengaliDigits(totalItemCount)} টি",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Medium,
+                                    color = AppTheme.colors.textMuted,
+                                    maxLines = 1,
+                                    softWrap = false
                                 )
                                 Text(
                                     text = "৳ ${DateUtils.toBengaliDigits(currentTotal)}",
                                     style = MaterialTheme.typography.headlineMedium,
                                     fontWeight = FontWeight.ExtraBold,
-                                    fontSize = 28.sp,
-                                    color = if (currentTotal > 0) AppTheme.colors.accentYellow else AppTheme.colors.textPrimary
+                                    fontSize = 24.sp,
+                                    color = if (currentTotal > 0) AppTheme.colors.accentYellow else AppTheme.colors.textPrimary,
+                                    maxLines = 1,
+                                    softWrap = false
                                 )
                             }
 
-                            // The 2 Primary Action Buttons: "মেমো" এবং "রিসেট"
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            // The 2 Action Buttons: "রিসেট" and "ক্যাশ মেমো" strictly on a single line
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
                                 // "রিসেট" বাটন
                                 OutlinedButton(
                                     onClick = {
-                                        provider.resetAllBill()
-                                        Toast.makeText(context, "হিসাব রিসেট করা হয়েছে", Toast.LENGTH_SHORT).show()
+                                        if (currentTotal > 0) {
+                                            provider.resetAllBill()
+                                            Toast.makeText(context, "হিসাব রিসেট করা হয়েছে", Toast.LENGTH_SHORT).show()
+                                        }
                                     },
                                     colors = ButtonDefaults.outlinedButtonColors(
                                         contentColor = AppTheme.colors.accentRed
                                     ),
                                     border = androidx.compose.foundation.BorderStroke(1.dp, AppTheme.colors.accentRed),
                                     shape = RoundedCornerShape(10.dp),
-                                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
-                                    modifier = Modifier.height(44.dp)
+                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                                    modifier = Modifier.height(40.dp)
                                 ) {
                                     Icon(
                                         Icons.Default.RestartAlt,
                                         contentDescription = null,
-                                        modifier = Modifier.size(18.dp),
+                                        modifier = Modifier.size(16.dp),
                                         tint = AppTheme.colors.accentRed
                                     )
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text("রিসেট", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                    Spacer(modifier = Modifier.width(3.dp))
+                                    Text(
+                                        text = "রিসেট",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 13.sp,
+                                        maxLines = 1,
+                                        softWrap = false
+                                    )
                                 }
 
-                                // "মেমো" বাটন
+                                // "ক্যাশ মেমো" বাটন
                                 Button(
                                     onClick = {
                                         if (currentTotal > 0) {
@@ -197,16 +196,22 @@ fun InstantBillScreen(
                                         contentColor = Color.Black
                                     ),
                                     shape = RoundedCornerShape(10.dp),
-                                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                                    modifier = Modifier.height(44.dp)
+                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                                    modifier = Modifier.height(40.dp)
                                 ) {
                                     Icon(
                                         Icons.Default.ReceiptLong,
                                         contentDescription = null,
-                                        modifier = Modifier.size(18.dp)
+                                        modifier = Modifier.size(16.dp)
                                     )
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text("মেমো", fontWeight = FontWeight.ExtraBold, fontSize = 14.sp)
+                                    Spacer(modifier = Modifier.width(3.dp))
+                                    Text(
+                                        text = "ক্যাশ মেমো",
+                                        fontWeight = FontWeight.ExtraBold,
+                                        fontSize = 13.sp,
+                                        maxLines = 1,
+                                        softWrap = false
+                                    )
                                 }
                             }
                         }
@@ -247,7 +252,7 @@ fun InstantBillScreen(
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
-                contentPadding = PaddingValues(top = 12.dp, bottom = 100.dp)
+                contentPadding = PaddingValues(top = 12.dp, bottom = 24.dp)
             ) {
                 items(filteredProducts, key = { it.id }) { product ->
                     val qty = quantities[product.id] ?: 0
@@ -475,106 +480,6 @@ fun InstantBillScreen(
                                         }
                                     }
                                 }
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Sticky Bottom Bar
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                color = AppTheme.colors.cardBackground,
-                tonalElevation = 8.dp,
-                shadowElevation = 8.dp,
-                border = androidx.compose.foundation.BorderStroke(1.dp, AppTheme.colors.border)
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column {
-                            Text(
-                                text = "মোট পণ্য: ${DateUtils.toBengaliDigits(totalItemCount)} টি",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = AppTheme.colors.textMuted
-                            )
-                            Text(
-                                text = "৳ ${DateUtils.toBengaliDigits(currentTotal)}",
-                                style = MaterialTheme.typography.headlineSmall,
-                                fontWeight = FontWeight.ExtraBold,
-                                color = if (currentTotal > 0) AppTheme.colors.accentYellow else AppTheme.colors.textPrimary
-                            )
-                        }
-
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            // Reset button
-                            OutlinedButton(
-                                onClick = { provider.resetAllBill() },
-                                colors = ButtonDefaults.outlinedButtonColors(
-                                    contentColor = AppTheme.colors.textMuted
-                                ),
-                                border = androidx.compose.foundation.BorderStroke(1.dp, AppTheme.colors.border),
-                                shape = RoundedCornerShape(10.dp),
-                                modifier = Modifier.height(46.dp)
-                            ) {
-                                Text("রিসেট", fontSize = 13.sp)
-                            }
-
-                            // Cash Memo button
-                            Button(
-                                onClick = onNavigateSummary,
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = AppTheme.colors.accentYellow,
-                                    contentColor = Color.Black
-                                ),
-                                shape = RoundedCornerShape(10.dp),
-                                modifier = Modifier.height(46.dp)
-                            ) {
-                                Icon(Icons.Default.ReceiptLong, contentDescription = null, modifier = Modifier.size(18.dp))
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text("ক্যাশ মেমো", fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                            }
-
-                            // Settle instant sale
-                            Button(
-                                onClick = {
-                                    if (currentTotal > 0) {
-                                        // Build summary
-                                        val prodMap = products.associate { it.id to it.name }
-                                        val itemsText = quantities.filter { it.value > 0 }.map { (id, q) ->
-                                            "${prodMap[id] ?: "পণ্য"} (${DateUtils.toBengaliDigits(q)})"
-                                        }.joinToString(", ")
-                                        val fullSummary = if (itemsText.isBlank()) "কাউন্টার নগদ বিক্রি" else itemsText
-
-                                        provider.recordInstantCounterSale(
-                                            amount = currentTotal,
-                                            summary = fullSummary,
-                                            isDue = false,
-                                            customerName = "তাৎক্ষণিক কাউন্টার"
-                                        )
-                                        Toast.makeText(context, "বিক্রি সম্পন্ন ও ইতিহাসে সেভ হয়েছে", Toast.LENGTH_SHORT).show()
-                                    } else {
-                                        Toast.makeText(context, "বিল খালি", Toast.LENGTH_SHORT).show()
-                                    }
-                                },
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = AppTheme.colors.accentGreen,
-                                    contentColor = Color.White
-                                ),
-                                shape = RoundedCornerShape(10.dp),
-                                modifier = Modifier.height(46.dp)
-                            ) {
-                                Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp))
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text("পরিশোধ", fontWeight = FontWeight.Bold, fontSize = 13.sp)
                             }
                         }
                     }

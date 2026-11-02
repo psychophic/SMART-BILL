@@ -113,6 +113,10 @@ class BillingRepository(
         return customerDao.insertCustomer(Customer(name = name.trim()))
     }
 
+    suspend fun addCustomerWithDue(name: String, totalDue: Double): Long {
+        return customerDao.insertCustomer(Customer(name = name.trim(), totalBill = totalDue))
+    }
+
     suspend fun updateCustomer(customer: Customer) {
         customerDao.updateCustomer(customer)
     }

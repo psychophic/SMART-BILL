@@ -47,6 +47,7 @@ fun SummaryScreen(
     val quantities by provider.quantities.collectAsState()
 
     val context = LocalContext.current
+    var customerNameInput by remember { mutableStateOf("") }
 
     // Calculate totals
     var totalProductsCost = 0.0
@@ -146,20 +147,118 @@ fun SummaryScreen(
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = AppTheme.colors.cardBackground)
             )
         },
+        bottomBar = {
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                color = AppTheme.colors.cardBackground,
+                tonalElevation = 8.dp,
+                shadowElevation = 8.dp,
+                border = androidx.compose.foundation.BorderStroke(1.dp, AppTheme.colors.border)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    // Customer Name Input Field (ঐচ্ছিক)
+                    OutlinedTextField(
+                        value = customerNameInput,
+                        onValueChange = { customerNameInput = it },
+                        placeholder = { Text("ক্রেতার নাম লিখুন (ঐচ্ছিক)", color = AppTheme.colors.textMuted, fontSize = 14.sp) },
+                        leadingIcon = {
+                            Icon(Icons.Default.Person, contentDescription = null, tint = AppTheme.colors.accentYellow)
+                        },
+                        singleLine = true,
+                        shape = RoundedCornerShape(10.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = AppTheme.colors.accentYellow,
+                            unfocusedBorderColor = AppTheme.colors.border,
+                            focusedTextColor = AppTheme.colors.textPrimary,
+                            unfocusedTextColor = AppTheme.colors.textPrimary
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    // Two Primary Action Buttons: "বাকী" and "পরিশোধ"
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        // "বাকী" Button (Red)
+                        Button(
+                            onClick = {
+                                if (grandTotal > 0) {
+                                    provider.saveInstantBill(
+                                        nameInput = customerNameInput,
+                                        isDue = true,
+                                        onComplete = { savedName ->
+                                            Toast.makeText(context, "$savedName এর জন্য ৳ ${DateUtils.toBengaliDigits(grandTotal)} বাকী হিসেবে জমা হয়েছে", Toast.LENGTH_SHORT).show()
+                                            onDismiss()
+                                        }
+                                    )
+                                } else {
+                                    Toast.makeText(context, "কোন পণ্য সিলেক্ট করা নেই", Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = AppTheme.colors.accentRed,
+                                contentColor = Color.White
+                            ),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(48.dp)
+                        ) {
+                            Icon(Icons.Default.Save, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("বাকী", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                        }
+
+                        // "পরিশোধ" Button (Green)
+                        Button(
+                            onClick = {
+                                if (grandTotal > 0) {
+                                    provider.saveInstantBill(
+                                        nameInput = customerNameInput,
+                                        isDue = false,
+                                        onComplete = { savedName ->
+                                            Toast.makeText(context, "$savedName এর জন্য ৳ ${DateUtils.toBengaliDigits(grandTotal)} পরিশোধ সম্পন্ন হয়েছে", Toast.LENGTH_SHORT).show()
+                                            onDismiss()
+                                        }
+                                    )
+                                } else {
+                                    Toast.makeText(context, "কোন পণ্য সিলেক্ট করা নেই", Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = AppTheme.colors.accentGreen,
+                                contentColor = Color.White
+                            ),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(48.dp)
+                        ) {
+                            Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("পরিশোধ", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                        }
+                    }
+                }
+            }
+        },
         containerColor = AppTheme.colors.background
     ) { innerPadding ->
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+                .padding(16.dp)
         ) {
             // Receipt Preview Card
             Card(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth(),
+                modifier = Modifier.fillMaxSize(),
                 shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(containerColor = AppTheme.colors.cardBackground),
                 border = androidx.compose.foundation.BorderStroke(1.dp, AppTheme.colors.accentYellow)
@@ -192,7 +291,16 @@ fun SummaryScreen(
                                 color = AppTheme.colors.textMuted,
                                 modifier = Modifier.padding(top = 4.dp)
                             )
-                            Divider(
+                            if (customerNameInput.isNotBlank()) {
+                                Text(
+                                    text = "ক্রেতা: $customerNameInput",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = AppTheme.colors.accentYellow,
+                                    modifier = Modifier.padding(top = 2.dp)
+                                )
+                            }
+                            HorizontalDivider(
                                 color = AppTheme.colors.border,
                                 modifier = Modifier.padding(vertical = 10.dp)
                             )
@@ -244,7 +352,7 @@ fun SummaryScreen(
                     // Expenses
                     if (expenses.isNotEmpty()) {
                         item {
-                            Divider(
+                            HorizontalDivider(
                                 color = AppTheme.colors.border,
                                 modifier = Modifier.padding(vertical = 4.dp)
                             )
@@ -273,7 +381,7 @@ fun SummaryScreen(
                     }
 
                     item {
-                        Divider(
+                        HorizontalDivider(
                             color = AppTheme.colors.border,
                             modifier = Modifier.padding(vertical = 10.dp)
                         )
@@ -298,7 +406,7 @@ fun SummaryScreen(
                                     Text("৳ ${DateUtils.toBengaliDigits(totalExpensesCost)}", color = AppTheme.colors.accentRed, fontWeight = FontWeight.SemiBold)
                                 }
                             }
-                            Divider(
+                            HorizontalDivider(
                                 color = AppTheme.colors.border,
                                 modifier = Modifier.padding(vertical = 4.dp)
                             )
@@ -339,44 +447,6 @@ fun SummaryScreen(
                             modifier = Modifier.fillMaxWidth()
                         )
                     }
-                }
-            }
-
-            // Bottom Action buttons
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                OutlinedButton(
-                    onClick = onDismiss,
-                    modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = AppTheme.colors.textPrimary),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, AppTheme.colors.border),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Text("ফিরে যান")
-                }
-
-                Button(
-                    onClick = {
-                        provider.recordInstantCounterSale(
-                            amount = grandTotal,
-                            summary = "কাউন্টার ক্যাশ মেমো",
-                            isDue = false
-                        )
-                        Toast.makeText(context, "বিল পরিশোধ সম্পন্ন ও হিস্ট্রিতে রেকর্ড করা হয়েছে!", Toast.LENGTH_SHORT).show()
-                        onDismiss()
-                    },
-                    modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = AppTheme.colors.accentYellow,
-                        contentColor = Color.Black
-                    ),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("বিল পরিশোধ", fontWeight = FontWeight.Bold)
                 }
             }
         }

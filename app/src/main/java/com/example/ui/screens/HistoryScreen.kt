@@ -23,6 +23,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -30,6 +31,9 @@ import com.example.models.BillRecord
 import com.example.providers.BillingProvider
 import com.example.ui.theme.*
 import com.example.utils.DateUtils
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -44,7 +48,13 @@ fun HistoryScreen(
     var searchQuery by remember { mutableStateOf("") }
     var sourceFilter by remember { mutableStateOf("ALL") } // "ALL", "KHATA", "INSTANT"
     var statusFilter by remember { mutableStateOf("ALL") } // "ALL", "DUE", "PAID"
-    var selectedMonthKey by remember { mutableStateOf<String?>(null) }
+    var selectedMonthKey by remember { mutableStateOf(DateUtils.getMonthKey(System.currentTimeMillis())) }
+    var monthDropdownExpanded by remember { mutableStateOf(false) }
+
+    val currentYear = remember { SimpleDateFormat("yyyy", Locale.US).format(Date()) }
+    val all12MonthKeys = remember(currentYear) {
+        (1..12).map { String.format(Locale.US, "%s-%02d", currentYear, it) }
+    }
 
     // Dialog states
     var recordToDelete by remember { mutableStateOf<BillRecord?>(null) }
@@ -55,22 +65,6 @@ fun HistoryScreen(
 
     // Expandable customer in monthly tab
     var expandedCustomerName by remember { mutableStateOf<String?>(null) }
-
-    // Derive all available months from records or default to current month
-    val availableMonths = remember(billRecords) {
-        val keys = billRecords.map { it.monthKey }.filter { it.isNotBlank() }.distinct()
-        if (keys.isEmpty()) {
-            listOf(DateUtils.getMonthKey(System.currentTimeMillis()))
-        } else {
-            keys.sortedDescending()
-        }
-    }
-
-    LaunchedEffect(availableMonths) {
-        if (selectedMonthKey == null && availableMonths.isNotEmpty()) {
-            selectedMonthKey = availableMonths.first()
-        }
-    }
 
     // Filtered records for "ALL" tab
     val filteredRecords = remember(billRecords, searchQuery, sourceFilter, statusFilter) {
@@ -436,6 +430,9 @@ fun HistoryScreen(
                                             verticalAlignment = Alignment.CenterVertically
                                         ) {
                                             Row(
+                                                modifier = Modifier
+                                                    .weight(1f)
+                                                    .padding(end = 8.dp),
                                                 verticalAlignment = Alignment.CenterVertically,
                                                 horizontalArrangement = Arrangement.spacedBy(10.dp)
                                             ) {
@@ -453,7 +450,7 @@ fun HistoryScreen(
                                                     )
                                                 }
 
-                                                Column {
+                                                Column(modifier = Modifier.weight(1f, fill = false)) {
                                                     Row(
                                                         verticalAlignment = Alignment.CenterVertically,
                                                         horizontalArrangement = Arrangement.spacedBy(6.dp)
@@ -461,8 +458,10 @@ fun HistoryScreen(
                                                         Text(
                                                             text = record.customerName,
                                                             fontWeight = FontWeight.Bold,
-                                                            fontSize = 16.sp,
-                                                            color = AppTheme.colors.textPrimary
+                                                            fontSize = 15.sp,
+                                                            color = AppTheme.colors.textPrimary,
+                                                            maxLines = 1,
+                                                            overflow = TextOverflow.Ellipsis
                                                         )
                                                         Surface(
                                                             color = if (isInstant) AppTheme.colors.accentYellow.copy(alpha = 0.15f) else Color(0xFF2196F3).copy(alpha = 0.15f),
@@ -480,7 +479,9 @@ fun HistoryScreen(
                                                     Text(
                                                         text = "${record.formattedDate} • ${record.formattedTime}",
                                                         fontSize = 11.sp,
-                                                        color = AppTheme.colors.textMuted
+                                                        color = AppTheme.colors.textMuted,
+                                                        maxLines = 1,
+                                                        overflow = TextOverflow.Ellipsis
                                                     )
                                                 }
                                             }
@@ -498,7 +499,9 @@ fun HistoryScreen(
                                                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                                                         fontWeight = FontWeight.Bold,
                                                         fontSize = 12.sp,
-                                                        color = if (isDue) AppTheme.colors.accentRed else AppTheme.colors.accentGreen
+                                                        color = if (isDue) AppTheme.colors.accentRed else AppTheme.colors.accentGreen,
+                                                        maxLines = 1,
+                                                        softWrap = false
                                                     )
                                                 }
 
@@ -506,7 +509,9 @@ fun HistoryScreen(
                                                     text = "৳ ${DateUtils.toBengaliDigits(record.totalAmount)}",
                                                     fontWeight = FontWeight.ExtraBold,
                                                     fontSize = 16.sp,
-                                                    color = if (isDue) AppTheme.colors.accentRed else AppTheme.colors.accentGreen
+                                                    color = if (isDue) AppTheme.colors.accentRed else AppTheme.colors.accentGreen,
+                                                    maxLines = 1,
+                                                    softWrap = false
                                                 )
                                             }
                                         }
@@ -583,32 +588,87 @@ fun HistoryScreen(
                         .padding(horizontal = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    // Month Selector Chips
-                    Text(
-                        text = "মাস নির্বাচন করুন:",
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = AppTheme.colors.accentYellow,
-                        modifier = Modifier.padding(top = 10.dp)
-                    )
-
-                    LazyRow(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    // Month Selector Dropdown (১২টি মাসের ড্রপডাউন মেনু)
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 10.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        items(availableMonths) { monthKey ->
-                            val isSelected = monthKey == selectedMonthKey
-                            FilterChip(
-                                selected = isSelected,
-                                onClick = { selectedMonthKey = monthKey },
-                                label = { Text(DateUtils.getMonthDisplayName(monthKey)) },
-                                colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = AppTheme.colors.accentYellow,
-                                    selectedLabelColor = Color.Black,
-                                    containerColor = AppTheme.colors.cardBackground,
-                                    labelColor = AppTheme.colors.textPrimary
-                                )
-                            )
+                        Text(
+                            text = "মাস নির্বাচন করুন:",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = AppTheme.colors.accentYellow
+                        )
+
+                        Box {
+                            Surface(
+                                onClick = { monthDropdownExpanded = true },
+                                color = AppTheme.colors.cardBackground,
+                                shape = RoundedCornerShape(10.dp),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, AppTheme.colors.accentYellow)
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.CalendarMonth,
+                                        contentDescription = null,
+                                        tint = AppTheme.colors.accentYellow,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Text(
+                                        text = DateUtils.getMonthDisplayName(selectedMonthKey),
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 14.sp,
+                                        color = AppTheme.colors.textPrimary
+                                    )
+                                    Icon(
+                                        imageVector = Icons.Default.ArrowDropDown,
+                                        contentDescription = null,
+                                        tint = AppTheme.colors.accentYellow
+                                    )
+                                }
+                            }
+
+                            DropdownMenu(
+                                expanded = monthDropdownExpanded,
+                                onDismissRequest = { monthDropdownExpanded = false },
+                                modifier = Modifier
+                                    .background(AppTheme.colors.cardBackground)
+                                    .widthIn(min = 190.dp)
+                            ) {
+                                all12MonthKeys.forEach { mKey ->
+                                    val isSelected = mKey == selectedMonthKey
+                                    DropdownMenuItem(
+                                        text = {
+                                            Text(
+                                                text = DateUtils.getMonthDisplayName(mKey),
+                                                fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Medium,
+                                                color = if (isSelected) AppTheme.colors.accentYellow else AppTheme.colors.textPrimary
+                                            )
+                                        },
+                                        trailingIcon = if (isSelected) {
+                                            {
+                                                Icon(
+                                                    Icons.Default.Check,
+                                                    contentDescription = null,
+                                                    tint = AppTheme.colors.accentYellow,
+                                                    modifier = Modifier.size(18.dp)
+                                                )
+                                            }
+                                        } else null,
+                                        onClick = {
+                                            selectedMonthKey = mKey
+                                            monthDropdownExpanded = false
+                                        }
+                                    )
+                                }
+                            }
                         }
                     }
 
@@ -626,7 +686,7 @@ fun HistoryScreen(
                             verticalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
                             Text(
-                                text = "${selectedMonthKey?.let { DateUtils.getMonthDisplayName(it) }} এর মোট হিসাব",
+                                text = "${DateUtils.getMonthDisplayName(selectedMonthKey)} এর মোট হিসাব",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = AppTheme.colors.accentYellow
@@ -669,7 +729,7 @@ fun HistoryScreen(
 
                     // Customer Monthly Totals List
                     Text(
-                        text = "ইনডিভিজুয়াল ক্রেতার মাসিক বিল (${DateUtils.toBengaliDigits(monthlyCustomerData.size)} জন)",
+                        text = "ক্রেতার মাসিক বিল (${DateUtils.toBengaliDigits(monthlyCustomerData.size)} জন)",
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold,
                         color = AppTheme.colors.accentYellow
@@ -718,6 +778,9 @@ fun HistoryScreen(
                                             verticalAlignment = Alignment.CenterVertically
                                         ) {
                                             Row(
+                                                modifier = Modifier
+                                                    .weight(1f)
+                                                    .padding(end = 8.dp),
                                                 verticalAlignment = Alignment.CenterVertically,
                                                 horizontalArrangement = Arrangement.spacedBy(10.dp)
                                             ) {
@@ -735,13 +798,15 @@ fun HistoryScreen(
                                                     )
                                                 }
 
-                                                Column {
+                                                Column(modifier = Modifier.weight(1f, fill = false)) {
                                                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                                         Text(
                                                             text = custItem.name,
                                                             fontWeight = FontWeight.Bold,
-                                                            fontSize = 16.sp,
-                                                            color = AppTheme.colors.textPrimary
+                                                            fontSize = 15.sp,
+                                                            color = AppTheme.colors.textPrimary,
+                                                            maxLines = 1,
+                                                            overflow = TextOverflow.Ellipsis
                                                         )
                                                         if (custItem.instant) {
                                                             Surface(
@@ -761,43 +826,46 @@ fun HistoryScreen(
                                                     Text(
                                                         text = "মোট মেমো: ${DateUtils.toBengaliDigits(custItem.billList.size)} টি • বিস্তারিত দেখতে ক্লিক করুন",
                                                         fontSize = 11.sp,
-                                                        color = AppTheme.colors.textMuted
+                                                        color = AppTheme.colors.textMuted,
+                                                        maxLines = 1,
+                                                        overflow = TextOverflow.Ellipsis
                                                     )
                                                 }
                                             }
 
-                                            Column(horizontalAlignment = Alignment.End) {
-                                                Text(
-                                                    text = "মাসের মোট বিল",
-                                                    fontSize = 10.sp,
-                                                    color = AppTheme.colors.textMuted
-                                                )
-                                                Text(
-                                                    text = "৳ ${DateUtils.toBengaliDigits(custItem.total)}",
-                                                    fontWeight = FontWeight.ExtraBold,
-                                                    fontSize = 17.sp,
-                                                    color = AppTheme.colors.textPrimary
-                                                )
-                                            }
+                                            // Monthly total bill on a single line
+                                            Text(
+                                                text = "মোট বিল: ৳ ${DateUtils.toBengaliDigits(custItem.total)}",
+                                                fontWeight = FontWeight.ExtraBold,
+                                                fontSize = 15.sp,
+                                                color = AppTheme.colors.accentYellow,
+                                                maxLines = 1,
+                                                softWrap = false
+                                            )
                                         }
 
                                         Divider(color = AppTheme.colors.border, modifier = Modifier.padding(vertical = 2.dp))
 
                                         Row(
                                             modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.SpaceBetween
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
                                         ) {
                                             Text(
                                                 text = "বাকী: ৳ ${DateUtils.toBengaliDigits(custItem.due)}",
                                                 fontSize = 12.sp,
                                                 fontWeight = FontWeight.SemiBold,
-                                                color = AppTheme.colors.accentRed
+                                                color = AppTheme.colors.accentRed,
+                                                maxLines = 1,
+                                                softWrap = false
                                             )
                                             Text(
                                                 text = "পরিশোধ: ৳ ${DateUtils.toBengaliDigits(custItem.paid)}",
                                                 fontSize = 12.sp,
                                                 fontWeight = FontWeight.SemiBold,
-                                                color = AppTheme.colors.accentGreen
+                                                color = AppTheme.colors.accentGreen,
+                                                maxLines = 1,
+                                                softWrap = false
                                             )
                                         }
 

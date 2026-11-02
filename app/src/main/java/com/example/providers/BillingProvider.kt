@@ -423,6 +423,85 @@ class BillingProvider(application: Application) : AndroidViewModel(application) 
         }
     }
 
+    fun getNextAutoCustomerName(): String {
+        val existingCustNames = customers.value.map { it.name }
+        val existingBillNames = billRecords.value.map { it.customerName }
+        val allNames = (existingCustNames + existingBillNames).toSet()
+
+        var index = 1
+        while (true) {
+            val numStr = if (index < 10) "০${DateUtils.toBengaliDigits(index)}" else DateUtils.toBengaliDigits(index)
+            val candidate = "ক্রেতা $numStr"
+            if (!allNames.contains(candidate)) {
+                return candidate
+            }
+            index++
+        }
+    }
+
+    fun saveInstantBill(nameInput: String, isDue: Boolean, onComplete: (String) -> Unit) {
+        val currentProds = products.value
+        val prodMap = currentProds.associate { it.id to it }
+        val qMap = _quantities.value
+        val expList = expenses.value
+
+        var grandTotal = 0.0
+        val summaryParts = mutableListOf<String>()
+
+        qMap.forEach { (pId, qty) ->
+            if (qty > 0) {
+                val prod = prodMap[pId]
+                val price = prod?.price ?: 0.0
+                grandTotal += price * qty
+                summaryParts.add("${prod?.name ?: "পণ্য"} (${DateUtils.toBengaliDigits(qty)})")
+            }
+        }
+        expList.forEach { exp ->
+            grandTotal += exp.amount
+        }
+        if (expList.isNotEmpty()) {
+            summaryParts.add("অন্যান্য খরচ (৳${DateUtils.toBengaliDigits(expList.sumOf { it.amount })})")
+        }
+
+        if (grandTotal <= 0.0) return
+
+        val summaryText = if (summaryParts.isEmpty()) "তাৎক্ষণিক ক্যাশ মেমো" else summaryParts.joinToString(", ")
+        val finalCustomerName = if (nameInput.trim().isNotBlank()) nameInput.trim() else getNextAutoCustomerName()
+
+        viewModelScope.launch {
+            val timestamp = System.currentTimeMillis()
+            val existingCustomer = customers.value.find { it.name.equals(finalCustomerName, ignoreCase = true) }
+
+            val customerId = if (existingCustomer != null) {
+                val newDue = if (isDue) existingCustomer.totalBill + grandTotal else existingCustomer.totalBill
+                repository.updateCustomer(existingCustomer.copy(totalBill = newDue, lastUpdated = timestamp))
+                existingCustomer.id
+            } else {
+                val newDue = if (isDue) grandTotal else 0.0
+                repository.addCustomerWithDue(finalCustomerName, newDue)
+            }
+
+            val record = BillRecord(
+                customerId = customerId,
+                customerName = finalCustomerName,
+                totalAmount = grandTotal,
+                status = if (isDue) "DUE" else "PAID",
+                itemsSummary = summaryText,
+                timestamp = timestamp,
+                formattedDate = DateUtils.formatDate(timestamp),
+                formattedTime = DateUtils.formatTime(timestamp),
+                monthKey = DateUtils.getMonthKey(timestamp)
+            )
+            repository.recordBill(record)
+
+            resetQuantities()
+            clearAllExpenses()
+            _showSummary.value = false
+
+            onComplete(finalCustomerName)
+        }
+    }
+
     // Navigation
     fun selectTab(tab: String) {
         _currentTab.value = tab

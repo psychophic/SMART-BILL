@@ -88,11 +88,21 @@ fun ProductsScreen(
                             containerColor = AppTheme.colors.accentYellow,
                             contentColor = Color.Black
                         ),
-                        shape = RoundedCornerShape(12.dp)
+                        shape = RoundedCornerShape(10.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                        modifier = Modifier.height(38.dp)
                     ) {
-                        Icon(Icons.Default.Add, contentDescription = "Add")
+                        Icon(
+                            Icons.Default.Add,
+                            contentDescription = "Add",
+                            modifier = Modifier.size(18.dp)
+                        )
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text("নতুন পণ্য", fontWeight = FontWeight.Bold)
+                        Text(
+                            text = "নতুন পণ্য",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp
+                        )
                     }
                 }
             }
